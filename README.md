@@ -21,4 +21,4 @@ Then run
 npm run dev
 ```
 
-Go to ```localhost://8080``` to use the webapp.
+Go to ```http://localhost:8080``` to use the webapp.
