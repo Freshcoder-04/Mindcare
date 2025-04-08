@@ -1,24 +1,27 @@
 # Mindcare
 
-## How to run
+## Database setup
 
-Start postgresql and create a database named mindcare.
+- Step 1: Start Postgresql
+- Step 2: Create a database named  ```mindcare```
 
-In the ```.env``` file, line 1 is:
+## Build
+
+First configure .env file:
 
 ```
-DATABASE_URL=postgres://your_username@localhost:5432/mindcare
+npm run setup-env
 ```
 
-Change ```your_username``` to your username. To get your username, run 
-```
-whoami
-```
-
-Then run
+Then start server by running
 
 ```
 npm run dev
 ```
 
-Go to ```http://localhost:8080``` to use the webapp.
+## Before commiting
+
+Run:
+```
+npm run clean
+```
