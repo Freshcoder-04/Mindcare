@@ -118,61 +118,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
   
-  // Generate a random 8-digit ID
   app.post('/api/auth/register', async (req, res) => {
     try {
       console.log("Registration request received:", req.body);
-      const { password } = req.body;
+      const { password, role } = req.body;
       
       if (!password) {
         console.log("Registration error: Password is required");
         return res.status(400).json({ message: 'Password is required' });
       }
       
+      // Ensure that role is either "student" or "counselor", defaulting to student
+      const userRole = (role === "counselor" ? "counselor" : "student");
+      
       // Get the current user count from the database
       const count = await storage.getUserCount();
-      // Generate the next sequential username padded to 8 digits
       const username = (count + 1).toString().padStart(8, '0');
       console.log("Generated username:", username);
       
-      // Create user with default role of student
       const userData = {
         username,
         password,
-        role: 'student' as const
+        role: userRole,
       };
       
       console.log("Creating user with data:", { ...userData, password: '[REDACTED]' });
-      try {
-        const user = await storage.createUser(userData);
-        console.log("User created successfully:", { id: user.id, username: user.username, role: user.role });
-        
-        req.login(user, (err) => {
-          if (err) {
-            console.error("Login failed after registration:", err);
-            return res.status(500).json({ message: 'Login failed after registration' });
-          }
-          console.log("User logged in successfully after registration");
-          return res.status(201).json({
-            user: {
-              id: user.id,
-              username: user.username,
-              role: user.role
-            },
-            // Return the username explicitly so the client can display it
-            username: user.username
-          });
+      const user = await storage.createUser(userData);
+      console.log("User created successfully:", { id: user.id, username: user.username, role: user.role });
+      
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Login failed after registration:", err);
+          return res.status(500).json({ message: 'Login failed after registration' });
+        }
+        console.log("User logged in successfully after registration");
+        return res.status(201).json({
+          user: { id: user.id, username: user.username, role: user.role },
+          username: user.username,
         });
-      } catch (createError) {
-        console.error("Error creating user:", createError);
-        throw createError;
-      }
+      });
     } catch (error) {
       console.error("Registration failed:", error);
       const message = error instanceof Error ? error.message : String(error);
       res.status(500).json({ message: 'Registration failed', error: message });
     }
   });
+  
   
   // Login route
   app.post('/api/auth/login', passport.authenticate('local'), (req, res) => {

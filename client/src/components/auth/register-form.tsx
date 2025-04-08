@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ const formSchema = z.object({
     message: "Password must be at least 6 characters",
   }),
   confirmPassword: z.string(),
+  role: z.enum(["student", "counselor"]).default("student"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -48,14 +49,12 @@ export default function RegisterForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const username = await register(values.password);
+      // Now, pass the role as well:
+      const username = await register(values.role, values.password);
+      console.log("Generated username:", username);
       if (username) {
         setGeneratedUsername(username);
-        // Clear password fields after successful registration
-        form.reset({
-          password: "",
-          confirmPassword: "",
-        });
+        form.reset({ password: "", confirmPassword: "", role: "student" });
         toast({
           title: "Account Created",
           description: "Your anonymous account has been created successfully. Be sure to save your ID!",
@@ -171,7 +170,38 @@ export default function RegisterForm() {
               </FormItem>
             )}
           />
-          
+          <FormField
+            control={form.control}
+            name="role"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Select Role</FormLabel>
+                <FormControl>
+                  <div className="flex space-x-4">
+                    <label>
+                      <input
+                        type="radio"
+                        value="student"
+                        checked={field.value === "student"}
+                        onChange={field.onChange}
+                      />{" "}
+                      Student
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        value="counselor"
+                        checked={field.value === "counselor"}
+                        onChange={field.onChange}
+                      />{" "}
+                      Counselor
+                    </label>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="confirmPassword"

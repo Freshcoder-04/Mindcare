@@ -19,6 +19,9 @@ import CounselorDashboard from "@/pages/counselor/dashboard";
 import CounselorAssessments from "@/pages/counselor/assessments";
 import CounselorResources from "@/pages/counselor/resources";
 
+
+import RegisterForm from "@/components/auth/register-form";
+
 function ProtectedRoute({ component: Component, counselorOnly = false, ...rest }: any) {
   const { isAuthenticated, user } = useAuth();
   const [, navigate] = useLocation();
@@ -55,7 +58,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
-
+      {/* Registration Route */}
+      <Route path="/register" component={RegisterForm} />
       {/* Student Routes */}
       <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} />

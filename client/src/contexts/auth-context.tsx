@@ -12,7 +12,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (password: string) => Promise<string>;
+  register: (role: "student" | "counselor", password: string) => Promise<string>;
   logout: () => Promise<void>;
 }
 
@@ -67,15 +67,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const register = async (password: string) => {
+  const register = async (role: "student" | "counselor", password: string) => {
     try {
-      const res = await apiRequest("POST", "/api/auth/register", { password });
+      console.log("Reached register function, role:", role, "password:", password);
+      const res = await apiRequest("POST", "/api/auth/register", { password, role });
       const data = await res.json();
       setUser(data.user);
       setIsAuthenticated(true);
-      
-      // Use the explicit username field first, fallback to user.username
-      // This ensures compatibility with both response formats
+      // Return the username (or fallback)
       return data.username || data.user.username;
     } catch (error) {
       console.error("Registration error:", error);
