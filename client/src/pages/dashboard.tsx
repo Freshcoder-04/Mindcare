@@ -48,7 +48,7 @@ export default function Dashboard() {
             title="Anonymous Chat"
             description="Connect with peers and share your experiences"
             icon="ri-chat-3-line"
-            variant="secondary"
+            variant="primary"
             action={{
               label: "Join Chat Room",
               onClick: () => navigate("/chat")
@@ -58,7 +58,7 @@ export default function Dashboard() {
             title="Book Appointment"
             description="Schedule a meeting with a counselor"
             icon="ri-calendar-line"
-            variant="accent"
+            variant="primary"
             action={{
               label: "View Calendar",
               onClick: () => navigate("/appointments")
