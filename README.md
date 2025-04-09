@@ -7,6 +7,11 @@
 
 ## Build
 
+Install all dependencies for your project:
+```
+npm install
+```
+
 First configure .env file:
 
 ```
@@ -17,11 +22,4 @@ Then start server by running
 
 ```
 npm run dev
-```
-
-## Before commiting
-
-Run:
-```
-npm run clean
 ```
