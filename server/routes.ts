@@ -7,7 +7,7 @@ import { checkDbConnection } from "./db";
 // Initialize PostgreSQL storage
 const storage = new PgStorage();
 import { WebSocketServer, WebSocket } from "ws";
-import { analyzeAssessment } from "./ai";
+import { analyzeAssessment, analyzeMood } from "./ai";
 import { nanoid } from "nanoid";
 import session from "express-session";
 import passport from "passport";
@@ -16,7 +16,7 @@ import MemoryStore from "memorystore";
 import {
   insertUserSchema,
   insertAssessmentQuestionSchema,
-  insertAssessmentSubmissionSchema,
+  clientAssessmentSubmissionSchema,
   insertResourceSchema,
   insertChatRoomSchema,
   insertChatMessageSchema,
@@ -267,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit assessment
   app.post('/api/assessment/submit', isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    const data = validateRequest(insertAssessmentSubmissionSchema, req, res);
+    const data = validateRequest(clientAssessmentSubmissionSchema, req, res);
     if (!data) return;
     
     try {
@@ -618,6 +618,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(slot);
     } catch (error) {
       res.status(500).json({ message: 'Failed to create available slot' });
+    }
+  });
+  
+  // Analyze mood
+  app.post('/api/mood/analyze', isAuthenticated, async (req, res) => {
+    const { mood } = req.body;
+    
+    if (!mood || typeof mood !== 'string') {
+      return res.status(400).json({ message: 'Invalid mood provided' });
+    }
+    
+    try {
+      const response = await analyzeMood(mood);
+      res.json({ response });
+    } catch (error) {
+      console.error("Error analyzing mood:", error);
+      res.status(500).json({ message: 'Failed to analyze mood' });
     }
   });
   

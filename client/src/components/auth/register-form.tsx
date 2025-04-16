@@ -19,10 +19,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Copy } from "lucide-react";
 
+const passwordSchema = z.string()
+  .min(6, "Password must be at least 6 characters long")
+  .regex(
+    /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).*$/,
+    "Password must contain at least one uppercase letter, one number, and one special character"
+  );
+
 const formSchema = z.object({
-  password: z.string().min(6, {
-    message: "Password must be at least 6 characters",
-  }),
+  password: passwordSchema,
   confirmPassword: z.string(),
   role: z.enum(["student", "counselor"]).default("student"),
 }).refine((data) => data.password === data.confirmPassword, {

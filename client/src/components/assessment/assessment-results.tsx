@@ -29,8 +29,8 @@ export default function AssessmentResults({
   
   const getScoreText = (score: number) => {
     if (score < 30) return "Low Stress";
-    if (score < 50) return "Moderate Stress";
-    if (score < 70) return "High Stress";
+    if (score < 60) return "Moderate Stress";
+    if (score < 80) return "High Stress";
     return "Severe Stress";
   };
   

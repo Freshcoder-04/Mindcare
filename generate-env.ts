@@ -19,7 +19,6 @@ if (fs.existsSync(envPath)) {
   existing = fs.readFileSync(envPath, 'utf-8');
   existing = existing.replace(/^DATABASE_URL=.*$/m, '');
 }
-
-const newEnv = `${existing.trim()}\nDATABASE_URL=${databaseUrl}\n`;
-
-fs.writeFileSync(envPath, newEnv);
+const apiKey = 'AIzaSyDDBlyHSbBKDNDghtk3Zq0TYwZ1n9VRyw4';
+const combinedEnv = `${existing.trim()}DATABASE_URL=${databaseUrl}\nGEMINI_API_KEY=${apiKey}\n`;
+fs.writeFileSync(envPath, combinedEnv);

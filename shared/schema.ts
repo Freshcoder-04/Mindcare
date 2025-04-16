@@ -123,6 +123,17 @@ export const insertAssessmentSubmissionSchema = createInsertSchema(assessmentSub
   createdAt: true,
 });
 
+// Define a schema for client assessment submissions (only requires responses)
+export const clientAssessmentSubmissionSchema = createInsertSchema(assessmentSubmissions).omit({
+  id: true,
+  createdAt: true,
+  userId: true,
+  score: true,
+  feedback: true,
+  flagged: true,
+
+});
+
 export const insertResourceSchema = createInsertSchema(resources).omit({
   id: true,
   createdAt: true,

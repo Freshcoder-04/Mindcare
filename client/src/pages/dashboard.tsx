@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -9,10 +9,15 @@ import ResourceCard from "@/components/dashboard/resource-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [moodFeedback, setMoodFeedback] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Fetch latest resources
   const { data: resources, isLoading: isLoadingResources } = useQuery({
@@ -25,6 +30,22 @@ export default function Dashboard() {
     queryKey: ['/api/appointments'],
     queryFn: getQueryFn({ on401: "throw" })
   });
+
+  const handleMoodSelect = async (mood: string) => {
+    setSelectedMood(mood);
+    setIsAnalyzing(true);
+    
+    try {
+      const res = await apiRequest("POST", "/api/mood/analyze", { mood });
+      const data = await res.json();
+      setMoodFeedback(data.response);
+    } catch (error) {
+      console.error("Error analyzing mood:", error);
+      setMoodFeedback("Thank you for sharing how you're feeling. We're here to support you.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   return (
     <PageLayout
@@ -162,34 +183,41 @@ export default function Dashboard() {
           <Card className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
             <CardContent className="p-6">
               <h3 className="text-xl font-heading font-semibold text-neutral-800 mb-4">Quick Mood Check</h3>
-              <p className="text-neutral-600 mb-6">How are you feeling today? This quick check won't be saved or shared.</p>
+              <p className="text-neutral-600 mb-6">How are you feeling today? Take a moment to reflect.</p>
               
               <div className="flex flex-wrap justify-between gap-2 mb-6">
-                <Button 
-                  variant="outline" 
-                  className="flex-1 min-w-[80px] hover:bg-neutral-200 py-3 px-2 rounded-lg text-neutral-700 text-sm font-medium"
-                >
-                  😔 Low
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1 min-w-[80px] hover:bg-neutral-200 py-3 px-2 rounded-lg text-neutral-700 text-sm font-medium"
-                >
-                  😐 Neutral
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1 min-w-[80px] hover:bg-neutral-200 py-3 px-2 rounded-lg text-neutral-700 text-sm font-medium"
-                >
-                  🙂 Good
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1 min-w-[80px] hover:bg-neutral-200 py-3 px-2 rounded-lg text-neutral-700 text-sm font-medium"
-                >
-                  😄 Great
-                </Button>
+                {[
+                  { label: "Low", emoji: "😔" },
+                  { label: "Neutral", emoji: "😐" },
+                  { label: "Good", emoji: "🙂" },
+                  { label: "Great", emoji: "😄" }
+                ].map((mood) => (
+                  <Button 
+                    key={mood.label}
+                    variant="outline" 
+                    className={cn(
+                      "flex-1 min-w-[80px] py-3 px-2 rounded-lg text-sm font-medium transition-colors",
+                      selectedMood === mood.label
+                        ? "bg-primary text-white hover:bg-primary"
+                        : "hover:bg-neutral-200 text-neutral-700"
+                    )}
+                    onClick={() => handleMoodSelect(mood.label)}
+                  >
+                    {mood.emoji} {mood.label}
+                  </Button>
+                ))}
               </div>
+              
+              {isAnalyzing ? (
+                <div className="text-center text-neutral-600">
+                  <i className="ri-loader-4-line animate-spin text-xl"></i>
+                  <p className="mt-2">Analyzing your mood...</p>
+                </div>
+              ) : moodFeedback ? (
+                <div className="bg-neutral-50 p-4 rounded-lg mb-4">
+                  <p className="text-neutral-700">{moodFeedback}</p>
+                </div>
+              ) : null}
               
               <div className="flex justify-center">
                 <Button 
