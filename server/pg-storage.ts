@@ -1,5 +1,6 @@
 import { eq, or, and, inArray, asc, desc, sql } from "drizzle-orm";
 import { db } from "./db";
+import { notInArray } from "drizzle-orm";
 import { 
   IStorage,
   User, InsertUser,
@@ -12,6 +13,8 @@ import {
   Appointment, InsertAppointment,
   AvailableSlot, InsertAvailableSlot
 } from "./storage";
+
+import { chatRoomMemberships } from "../shared/schema"; // adjust path accordingly
 import * as schema from "../shared/schema";
 
 /**
@@ -50,6 +53,10 @@ export class PgStorage implements IStorage {
   async getUserCount(): Promise<number> {
     const result = await db.select({ count: sql<number>`COUNT(*)` }).from(schema.users);
     return Number(result[0].count);
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(schema.users).where(eq(schema.users.role, role as "student" | "counselor"));
   }
 
   // ===== Assessment Question Operations =====
@@ -197,6 +204,63 @@ export class PgStorage implements IStorage {
 
   // ===== Chat Room Operations =====
 
+  async createChatRoom(data: InsertChatRoom, creatorId: number) {
+    const existing = await db
+      .select()
+      .from(schema.chatRooms)
+      .where(eq(schema.chatRooms.name, data.name))
+      .limit(1);
+  
+    if (existing.length > 0) {
+      throw new Error("Room with this name already exists");
+    }
+  
+    const [room] = await db
+      .insert(schema.chatRooms)
+      .values({
+        ...data,
+        active: true,
+      })
+      .returning();
+    
+      await db.insert(chatRoomMemberships).values({
+        userId: creatorId,
+        roomId: room.id,
+      });
+
+    return room;
+  }
+
+  async getAvailableRooms(userId: number) {
+    const joined = await db
+      .select({ roomId: chatRoomMemberships.roomId })
+      .from(chatRoomMemberships)
+      .where(eq(chatRoomMemberships.userId, userId));
+  
+    const joinedIds = joined.map(j => j.roomId);
+  
+    console.log("User has joined room IDs:", joinedIds);
+  
+    const rooms = await db
+      .select()
+      .from(schema.chatRooms)
+      .where(notInArray(schema.chatRooms.id, joinedIds)); //  this line could fail
+  
+    return rooms;
+  }
+  
+  
+  async getJoinedRooms(userId: number) {
+    const results = await db
+      .select()
+      .from(schema.chatRooms)
+      .innerJoin(chatRoomMemberships, eq(chatRoomMemberships.roomId, schema.chatRooms.id))
+      .where(eq(chatRoomMemberships.userId, userId));
+  
+    return results.map(r => r.chat_rooms); // depending on how join is structured
+  }
+  
+
   async getChatRooms(): Promise<ChatRoom[]> {
     return await db.select().from(schema.chatRooms)
       .orderBy(asc(schema.chatRooms.name));
@@ -209,22 +273,74 @@ export class PgStorage implements IStorage {
     return result[0];
   }
 
-  async createChatRoom(room: InsertChatRoom): Promise<ChatRoom> {
-    const result = await db.insert(schema.chatRooms).values(room).returning();
-    return result[0];
+  async joinRoom(userId: number, roomId: number) {
+    const exists = await db
+      .select()
+      .from(chatRoomMemberships)
+      .where(
+        and(eq(chatRoomMemberships.userId, userId), eq(chatRoomMemberships.roomId, roomId))
+      );
+  
+    if (exists.length === 0) {
+      await db.insert(chatRoomMemberships).values({ userId, roomId });
+    }
   }
+  async leaveRoom(userId: number, roomId: number) {
+    await db.delete(chatRoomMemberships)
+      .where(
+        and(eq(chatRoomMemberships.userId, userId), eq(chatRoomMemberships.roomId, roomId))
+      );
+  }
+  // async getChatRoomMembers(roomId: number): Promise<User[]> {
+  //   return await db.select().from(schema.users)
+  //     .innerJoin(chatRoomMemberships, eq(chatRoomMemberships.userId, schema.users.id))
+  //     .where(eq(chatRoomMemberships.roomId, roomId));
+  // }
+
+  // async createChatRoom(room: InsertChatRoom): Promise<ChatRoom> {
+  //   const result = await db.insert(schema.chatRooms).values(room).returning();
+  //   return result[0];
+  // }
 
   // ===== Chat Message Operations =====
 
   async getChatMessages(roomId: number): Promise<ChatMessage[]> {
-    return await db.select().from(schema.chatMessages)
+    const results = await db
+      .select({
+        id: schema.chatMessages.id,
+        roomId: schema.chatMessages.roomId,
+        userId: schema.chatMessages.userId,
+        username: schema.users.username,
+        message: schema.chatMessages.message,
+        createdAt: schema.chatMessages.createdAt,
+      })
+      .from(schema.chatMessages)
+      .leftJoin(schema.users, eq(schema.users.id, schema.chatMessages.userId))
       .where(eq(schema.chatMessages.roomId, roomId))
       .orderBy(asc(schema.chatMessages.createdAt));
+  
+    return results;
   }
-
-  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
-    const result = await db.insert(schema.chatMessages).values(message).returning();
-    return result[0];
+  // async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+  //   const result = await db.insert(schema.chatMessages).values(message).returning();
+  //   return result[0];
+  // }
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage & { username: string }> {
+    const [inserted] = await db
+      .insert(schema.chatMessages)
+      .values(message)
+      .returning();
+  
+    const user = await db
+      .select({ username: schema.users.username })
+      .from(schema.users)
+      .where(eq(schema.users.id, inserted.userId))
+      .then(res => res[0]);
+  
+    return {
+      ...inserted,
+      username: user.username,
+    };
   }
 
   // ===== Appointment Operations =====
@@ -264,6 +380,49 @@ export class PgStorage implements IStorage {
       .returning();
     return result[0];
   }
+
+  async findDirectRoom(userId1: number, userId2: number) {
+    const rooms = await db
+      .select({ id: schema.chatRooms.id })
+      .from(schema.chatRooms)
+      .where(eq(schema.chatRooms.type, 'direct'));
+  
+    for (const room of rooms) {
+      const members = await db
+        .select({ userId: chatRoomMemberships.userId })
+        .from(chatRoomMemberships)
+        .where(eq(chatRoomMemberships.roomId, room.id));
+  
+      const memberIds = members.map((m) => m.userId);
+      if (
+        memberIds.includes(userId1) &&
+        memberIds.includes(userId2) &&
+        memberIds.length === 2
+      ) {
+        return room;
+      }
+    }
+  
+    return null;
+  }
+
+  async addUserToRoom(userId: number, roomId: number) {
+    const existing = await db
+      .select()
+      .from(chatRoomMemberships)
+      .where(
+        and(
+          eq(chatRoomMemberships.userId, userId),
+          eq(chatRoomMemberships.roomId, roomId)
+        )
+      );
+  
+    if (existing.length === 0) {
+      await db.insert(chatRoomMemberships).values({ userId, roomId });
+    }
+  }
+  
+  
 
   // ===== Available Slot Operations =====
 

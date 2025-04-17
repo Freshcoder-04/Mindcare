@@ -7,32 +7,108 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatRoom as ChatRoomType } from "@shared/types";
+import { Link } from "react-router-dom";
+import { useEffect} from "react";
 
 export default function Chat() {
   const [selectedRoom, setSelectedRoom] = useState<ChatRoomType | null>(null);
   
   // Fetch chat rooms
-  const { data: chatRooms, isLoading } = useQuery({
-    queryKey: ['/api/chat/rooms'],
-    queryFn: async () => {
-      const res = await fetch('/api/chat/rooms', { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch chat rooms");
-      return res.json();
-    },
-  });
+  // const { data: chatRooms, isLoading } = useQuery({
+  //   queryKey: ['/api/chat/rooms'],
+  //   queryFn: async () => {
+  //     const res = await fetch('/api/chat/rooms', { credentials: "include" });
+  //     if (!res.ok) throw new Error("Failed to fetch chat rooms");
+  //     return res.json();
+  //   },
+  // });
+  const [chatRooms, setChatRooms] = useState<ChatRoomType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+      const loadRooms = async () => {
+        try {
+          const res = await fetch("/api/chat/rooms", { credentials: "include" });
+          const data = await res.json();
+          setChatRooms(data);
+        } catch (err) {
+          console.error("Failed to load chat rooms", err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+    
+      loadRooms();
+    }, []);
+  
+    const [availableRooms, setAvailableRooms] = useState<ChatRoomType[] | null>(null);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      const res = await fetch("/api/chat/rooms/available", { credentials: "include" });
+      const data = await res.json();
+      setAvailableRooms(data);
+    };
+
+    fetchRooms();
+  }, []);
+
+
+
+    useEffect(() => {
+      const socket = new WebSocket("ws://localhost:8080/ws");
+    
+      socket.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "new-room") {
+            const newRoom: ChatRoomType = msg.payload;
+    
+            setChatRooms((prev) => {
+              const exists = prev.find((r) => r.id === newRoom.id);
+              return exists ? prev : [...prev, newRoom];
+            });
+          }
+
+          if (msg.type === "user-joined") {
+            console.log(`User ${msg.payload.userId} joined room ${msg.payload.roomId}`);
+            // Optionally show a toast or update UI
+          }
+        } catch (err) {
+          console.error("Invalid WebSocket message", err);
+        }
+      };
+    
+      return () => socket.close();
+    }, []);
+    
   
   return (
     <PageLayout
       title="Chat Rooms"
       description="Connect anonymously with peers and counselors"
+      headerContent={
+        <>
+          <Link to="/chat/create">
+            <button className="bg-primary hover:bg-primary-dark text-white font-medium px-4 py-2 rounded-lg">
+              Create Room
+            </button>
+          </Link>
+          <Link to="/chat/rooms/available">
+            <button className="bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-medium px-4 py-2 rounded-lg">
+              Join Room
+            </button>
+          </Link>
+        </>
+      }
     >
+
       <div className="h-[calc(100vh-13rem)] max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
           {/* Chat Room List */}
           <div className="lg:col-span-1 h-full">
             <Card className="h-full">
               <div className="p-4 border-b">
-                <h3 className="font-medium">Available Rooms</h3>
+                <h3 className="font-medium">Joined Rooms</h3>
               </div>
               
               {isLoading ? (

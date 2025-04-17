@@ -3,10 +3,11 @@ import { createServer, type Server } from "http";
 // import { storage } from "./storage";
 import { PgStorage } from "./pg-storage";
 import { checkDbConnection } from "./db";
-
+import { eq } from "drizzle-orm";
 // Initialize PostgreSQL storage
 const storage = new PgStorage();
 import { WebSocketServer, WebSocket } from "ws";
+import express from 'express';
 import { analyzeAssessment } from "./ai";
 import { nanoid } from "nanoid";
 import session from "express-session";
@@ -27,6 +28,7 @@ import {
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 
+
 // WebSocket clients store
 interface Client {
   userId: number;
@@ -36,12 +38,33 @@ interface Client {
 
 const clients: Client[] = [];
 
+const app = express();
+
+const httpServer = createServer(app);
+// const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+
+
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Setup WebSocket server
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  
+
+  wss.on("connection", (socket) => {
+    console.log("WebSocket client connected");
+
+    socket.on("message", (msg) => {
+      console.log("Message received:", msg.toString());
+    });
+
+    socket.on("close", () => {
+      console.log("WebSocket disconnected");
+    });
+  });
+
+
+
   // Setup session
   const SessionStore = MemoryStore(session);
   
@@ -321,6 +344,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch flagged submissions' });
     }
   });
+
+  app.get("/api/users/students", isCounselor, async (req, res) => {
+    try {
+      const students = await storage.getUsersByRole('student'); // Adjusted to use storage method
+      res.json(students);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch students" });
+    }
+  });
+
+  app.post("/api/chat/direct/:studentId", isCounselor, async (req, res) => {
+    const counselorId = (req.user as any).id;
+    const studentId = parseInt(req.params.studentId);
+  
+    try {
+      // Search for existing direct room between counselor and student
+      const existingRoom = await storage.findDirectRoom(counselorId, studentId);
+      if (existingRoom) return res.json(existingRoom);
+  
+      const room = await storage.createChatRoom(
+        {
+        name: `Counselor-${counselorId}-Student-${studentId}`,
+        type: "direct"
+      },
+        counselorId
+      );
+  
+      await storage.addUserToRoom(counselorId, room.id);
+      await storage.addUserToRoom(studentId, room.id);
+  
+      res.status(201).json(room);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start direct chat" });
+    }
+  });
+  
+  
+  
+
+
   
   // ===== Resource Routes =====
   
@@ -470,16 +533,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // ===== Chat Routes =====
   
-  // Get all chat rooms
-  app.get('/api/chat/rooms', isAuthenticated, async (req, res) => {
+  
+  app.post("/api/chat/rooms", isAuthenticated, async (req, res) => {
+    const data = validateRequest(insertChatRoomSchema, req, res);
+    if (!data) return;
+  
     try {
-      const rooms = await storage.getChatRooms();
-      res.json(rooms);
-    } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch chat rooms' });
+      // const room = await storage.createChatRoom(data);
+      const room = await storage.createChatRoom(data, (req.user as any).id);
+
+      const message = JSON.stringify({
+        type: "new-room",
+        payload: room,
+      });
+  
+      clients.forEach((client) => {
+        if (client.socket.readyState === WebSocket.OPEN) {
+          client.socket.send(message);
+        }
+      });
+  
+      res.status(201).json(room);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create room";
+      res.status(400).json({ error: message });
     }
   });
   
+
+  // // Get all chat rooms
+  // app.get('/api/chat/rooms', isAuthenticated, async (req, res) => {
+  //   try {
+  //     const rooms = await storage.getChatRooms();
+  //     res.json(rooms);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Failed to fetch chat rooms' });
+  //   }
+  // });
+  app.get("/api/chat/rooms", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+  
+    try {
+      const rooms = await storage.getJoinedRooms(user.id);
+      res.json(rooms);
+    } catch (err) {
+      console.error("Failed to fetch joined chat rooms:", err);
+      res.status(500).json({ message: "Failed to fetch chat rooms" });
+    }
+  });
+
+
+  app.get("/api/chat/rooms/available", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    console.log("Fetching available rooms for user:", user.id);
+  
+    try {
+      const rooms = await storage.getAvailableRooms(user.id);
+      res.json(rooms);
+    } catch (err) {
+      console.error("Failed to fetch available rooms:", err);
+      res.status(500).json({ message: "Failed to fetch available rooms" });
+    }
+  });
+  
+
+  app.post("/api/chat/rooms/:id/join", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const roomId = parseInt(req.params.id);
+  
+    try {
+      await storage.joinRoom(user.id, roomId);
+  
+      // WebSocket broadcast (see step 3 below)
+      const message = JSON.stringify({
+        type: "user-joined",
+        payload: { userId: user.id, roomId },
+      });
+  
+      clients.forEach(client => {
+        if (client.socket.readyState === WebSocket.OPEN) {
+          client.socket.send(message);
+        }
+      });
+  
+      res.status(200).json({ message: "Joined successfully" });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to join room" });
+    }
+  });
+  
+
+
+    
   // Get messages for a chat room
   app.get('/api/chat/rooms/:id/messages', isAuthenticated, async (req, res) => {
     const { id } = req.params;
@@ -503,6 +648,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch chat messages' });
     }
   });
+
+
+  
   
   // ===== Appointment Routes =====
   

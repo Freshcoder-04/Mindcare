@@ -10,6 +10,11 @@ interface UseChatOptions {
 }
 
 export function useChat({ roomId, autoConnect = true }: UseChatOptions = {}) {
+
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+
+
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const socket = useRef<WebSocket | null>(null);
@@ -25,6 +30,22 @@ export function useChat({ roomId, autoConnect = true }: UseChatOptions = {}) {
     
     socket.current = createWebSocketConnection();
     
+
+    // socket.current.onopen = () => {
+    //   console.log("WebSocket connected");
+    //   reconnectAttemptsRef.current = 0; // ✅ Reset retry attempts
+    //   setSocketConnected(true);
+    
+    //   // Send auth
+    //   if (socket.current && user) {
+    //     socket.current.send(JSON.stringify({
+    //       type: "auth",
+    //       payload: { userId: user.id }
+    //     }));
+    //   }
+    // };
+    
+
     socket.current.onopen = () => {
       console.log("WebSocket connected");
       
@@ -111,6 +132,23 @@ export function useChat({ roomId, autoConnect = true }: UseChatOptions = {}) {
           break;
       }
     };
+
+    // socket.current.onclose = (event) => {
+    //   console.log("WebSocket disconnected", event);
+    //   setIsConnected(false);
+    
+    //   // Reconnect only if it was unexpected (not a clean close)
+    //   if (!event.wasClean && isAuthenticated) {
+    //     const delay = Math.min(10000, 2000 * 2 ** reconnectAttemptsRef.current); // cap at 10s
+    //     console.warn(`Attempting to reconnect in ${delay / 1000}s...`);
+    
+    //     reconnectTimeoutRef.current = setTimeout(() => {
+    //       reconnectAttemptsRef.current += 1;
+    //       connect(); // 👈 try again
+    //     }, delay);
+    //   }
+    // };
+    
     
     socket.current.onclose = () => {
       console.log("WebSocket disconnected");
@@ -130,32 +168,61 @@ export function useChat({ roomId, autoConnect = true }: UseChatOptions = {}) {
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {
     if (socket.current) {
-      // Leave room if roomId is provided
       if (roomId && socket.current.readyState === WebSocket.OPEN) {
         socket.current.send(JSON.stringify({
           type: "leave_room",
           payload: { roomId }
         }));
       }
-      
+  
       socket.current.close();
       socket.current = null;
       setIsConnected(false);
     }
   }, [roomId]);
+
+  // const disconnect = useCallback(() => {
+  //   if (reconnectTimeoutRef.current) {
+  //     clearTimeout(reconnectTimeoutRef.current);
+  //     reconnectTimeoutRef.current = null;
+  //   }
+  
+  //   if (socket.current) {
+  //     if (roomId && socket.current.readyState === WebSocket.OPEN) {
+  //       socket.current.send(JSON.stringify({
+  //         type: "leave_room",
+  //         payload: { roomId }
+  //       }));
+  //     }
+  
+  //     socket.current.close();
+  //     socket.current = null;
+  //     setIsConnected(false);
+  //   }
+  // }, [roomId]);
+  
   
   // Send message
-  const sendMessage = useCallback((message: string) => {
-    if (!roomId || !socket.current || !isConnected) return;
+  // const sendMessage = useCallback((message: string) => {
+  //   if (!roomId || !socket.current || !isConnected) return;
     
+  //   socket.current.send(JSON.stringify({
+  //     type: "chat_message",
+  //     payload: {
+  //       roomId,
+  //       message
+  //     }
+  //   }));
+  // }, [roomId, isConnected]);
+  const sendMessage = useCallback((message: string) => {
+    if (!roomId || !socket.current || socket.current.readyState !== WebSocket.OPEN) return;
+  
     socket.current.send(JSON.stringify({
       type: "chat_message",
-      payload: {
-        roomId,
-        message
-      }
+      payload: { roomId, message }
     }));
-  }, [roomId, isConnected]);
+  }, [roomId]);
+  
   
   // Send typing status
   const sendTyping = useCallback((isTyping: boolean) => {
@@ -207,12 +274,12 @@ export function useChat({ roomId, autoConnect = true }: UseChatOptions = {}) {
       loadMessages();
       
       // Join room if already connected
-      if (isConnected && socket.current) {
-        socket.current.send(JSON.stringify({
-          type: "join_room",
-          payload: { roomId }
-        }));
-      }
+      // if (isConnected && socket.current) {
+      //   socket.current.send(JSON.stringify({
+      //     type: "join_room",
+      //     payload: { roomId }
+      //   }));
+      // }
     }
     
     // Clear messages when roomId changes

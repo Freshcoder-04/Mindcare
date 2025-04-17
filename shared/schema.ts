@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum } from "drizzle-orm/pg-core";
+import { ColumnBaseConfig, ColumnDataType } from "drizzle-orm";
+import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum, ExtraConfigColumn, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -75,6 +76,22 @@ export const chatRooms = pgTable("chat_rooms", {
   active: boolean("active").notNull().default(true),
 });
 
+// chat_room_memberships.ts
+// export const chatRoomMemberships = pgTable("chat_room_memberships", {
+//   // id: serial("id").primaryKey(),
+//   userId: integer("user_id").notNull().references(() => users.id),
+//   roomId: integer("room_id").notNull().references(() => chatRooms.id),
+//   joinedAt: timestamp("joined_at").defaultNow(),
+// });
+
+export const chatRoomMemberships = pgTable("chat_room_memberships", {
+  userId: integer("user_id").notNull().references(() => users.id),
+  roomId: integer("room_id").notNull().references(() => chatRooms.id),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.roomId] }), // composite PK
+}));
+
+
 // Chat Messages Table
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
@@ -112,6 +129,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   role: true,
 });
+
+export type ChatRoomMembership = typeof chatRoomMemberships.$inferSelect;
+export type InsertChatRoomMembership = typeof chatRoomMemberships.$inferInsert;
+
 
 export const insertAssessmentQuestionSchema = createInsertSchema(assessmentQuestions).omit({
   id: true,
@@ -180,3 +201,8 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
 export type AvailableSlot = typeof availableSlots.$inferSelect;
 export type InsertAvailableSlot = z.infer<typeof insertAvailableSlotSchema>;
+
+// function primaryKey(arg0: { columns: ExtraConfigColumn<ColumnBaseConfig<ColumnDataType, string>>[]; }): import("drizzle-orm/pg-core").PgTableExtraConfigValue {
+//   throw new Error("Function not implemented.");
+// }
+

@@ -1,0 +1,1 @@
+DATABASE_URL=postgresql://mananchichra:mypassword@localhost:5432/mindcare

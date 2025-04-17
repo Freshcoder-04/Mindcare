@@ -123,7 +123,7 @@ export default function CounselorDashboard() {
           </Button>
           
           <Button
-            onClick={() => navigate("/chat")}
+            onClick={() => navigate("/counselor/chat-counselor")}
             className="h-auto py-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-800"
           >
             <div className="flex flex-col items-center">

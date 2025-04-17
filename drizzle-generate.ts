@@ -1,9 +1,14 @@
+import 'dotenv/config';
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+// import { Pool } from "pg";
+import pgPkg from "pg";
+const { Pool } = pgPkg;
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import * as schema from "./shared/schema";
 
 // Create a PostgreSQL connection pool
+console.log("Using DATABASE_URL:", process.env.DATABASE_URL);
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
@@ -15,7 +20,7 @@ async function main() {
     const db = drizzle(pool, { schema });
     
     console.log("Running migrations...");
-    await migrate(db, { migrationsFolder: "drizzle" });
+    await migrate(db, { migrationsFolder: "migrations" });
     
     console.log("Migrations completed successfully");
     process.exit(0);

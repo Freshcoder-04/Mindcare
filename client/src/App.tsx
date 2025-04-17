@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "./hooks/use-auth";
 
+
 // Pages
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
@@ -18,9 +19,13 @@ import NotFound from "@/pages/not-found";
 import CounselorDashboard from "@/pages/counselor/dashboard";
 import CounselorAssessments from "@/pages/counselor/assessments";
 import CounselorResources from "@/pages/counselor/resources";
-
+import CounselorChat from "@/pages/counselor/chat-counselor";
 
 import RegisterForm from "@/components/auth/register-form";
+import createRoom from "@/components/chat/create";
+import ChatRoom from "@/components/chat/chat-room";
+import AvailableRoom from "@/components/chat/join";
+
 
 function ProtectedRoute({ component: Component, counselorOnly = false, ...rest }: any) {
   const { isAuthenticated, user } = useAuth();
@@ -59,6 +64,14 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       {/* Registration Route */}
+      <Route path="/chat/create" component={createRoom} />
+      <Route path="/chat/rooms/available" component={AvailableRoom} />
+      {/* <Route
+        path="/chat/:roomId"
+        component={({ params }: { params: { roomId:  } }) => (
+          <ChatRoom roomId={params.roomId} roomName="Default Room Name" />
+        )}
+      /> */}
       <Route path="/register" component={RegisterForm} />
       {/* Student Routes */}
       <Route path="/dashboard">
@@ -86,6 +99,9 @@ function Router() {
       </Route>
       <Route path="/counselor/resources">
         <ProtectedRoute component={CounselorResources} counselorOnly />
+      </Route>
+      <Route path="/counselor/chat-counselor">
+        <ProtectedRoute component={CounselorChat} counselorOnly />
       </Route>
 
       {/* Redirect / to appropriate location */}

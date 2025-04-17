@@ -57,32 +57,66 @@ app.use((req, res, next) => {
 });
 
 // Setup routes
-registerRoutes(app);
+// registerRoutes(app);
 
-// Create HTTP server from Express app
-const server = http.createServer(app);
+// // Create HTTP server from Express app
+// const server = http.createServer(app);
+//   let server: http.Server;
+//   (async () => {
+//     server = await registerRoutes(app);
+//   })();
 
-// Initialize default PostgreSQL data
+      
+
+// // Initialize default PostgreSQL data
+// (async () => {
+//   try {
+//     const pgStorage = new PgStorage();
+//     await pgStorage.initializeDefaultData();
+//     log("PostgreSQL storage initialized with default data", "db");
+//   } catch (error) {
+//     log(`Error initializing PostgreSQL storage: ${error}`, "db");
+//   }
+
+//   // Setup Vite in development mode, else serve static assets.
+//   if (app.get("env") === "development") {
+//     // Pass both the app and the HTTP server to setupVite.
+//     await setupVite(app, server);
+//   } else {
+//     serveStatic(app);
+//   }
+
+//   // Listen on port 8080
+//   const port = 8080;
+//   server.listen(port, () => {
+//     log(`Server is running on port ${port}`);
+//   });
+// })();
 (async () => {
   try {
+    // Setup DB
     const pgStorage = new PgStorage();
     await pgStorage.initializeDefaultData();
     log("PostgreSQL storage initialized with default data", "db");
-  } catch (error) {
-    log(`Error initializing PostgreSQL storage: ${error}`, "db");
-  }
 
-  // Setup Vite in development mode, else serve static assets.
-  if (app.get("env") === "development") {
-    // Pass both the app and the HTTP server to setupVite.
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+    // Setup WebSocket + routes
+    const server = await registerRoutes(app);
 
-  // Listen on port 8080
-  const port = 8080;
-  server.listen(port, () => {
-    log(`Server is running on port ${port}`);
-  });
+    // Setup Vite or static serving
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    // Start the server
+    const port = 8080;
+    server.listen(port, () => {
+      log(` Server + WebSocket running at http://localhost:${port}`);
+    });
+  } catch (err) {
+    log(`Error during server startup: ${err}`, "server");
+    process.exit(1);
+  }
 })();
+
