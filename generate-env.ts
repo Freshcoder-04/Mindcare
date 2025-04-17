@@ -20,5 +20,5 @@ if (fs.existsSync(envPath)) {
   existing = existing.replace(/^DATABASE_URL=.*$/m, '');
 }
 const apiKey = 'AIzaSyDDBlyHSbBKDNDghtk3Zq0TYwZ1n9VRyw4';
-const combinedEnv = `${existing.trim()}DATABASE_URL=${databaseUrl}\nGEMINI_API_KEY=${apiKey}\n`;
+const combinedEnv = `${existing.trim()}DATABASE_URL=${databaseUrl}\nAI_PROVIDER="gemini"\nAI_API_KEY=${apiKey}\n`; // AI_provider="gemini" or "openai"
 fs.writeFileSync(envPath, combinedEnv);

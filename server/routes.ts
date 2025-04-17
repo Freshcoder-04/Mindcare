@@ -265,6 +265,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Submit assessment
+    // ─── Streaming Assessment Submission Endpoint ──────────────────────────────
+    app.post(
+      "/api/assessment/submit/stream",
+      isAuthenticated,
+      async (req: Request, res: Response) => {
+        const user = req.user as any;
+  
+        // Validate only the client‑provided fields (responses)
+        const data = validateRequest(clientAssessmentSubmissionSchema, req, res);
+        if (!data) return;
+        data.userId = user.id; // attach user
+  
+        // Pre‑fetch questions for context
+        let questions;
+        try {
+          questions = await storage.getAssessmentQuestions();
+        } catch (err) {
+          console.error("Failed to load questions:", err);
+          return res.status(500).json({ message: "Internal error" });
+        }
+  
+        // SSE headers
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        });
+        res.write("\n"); // send a first empty line to establish the stream
+  
+        try {
+          for await (const chunk of streamAnalyzeAssessment(data, questions)) {
+            // Final sentinel looks like JSON with "__STREAM_DONE"
+            if (
+              chunk.startsWith("{") &&
+              chunk.includes("__STREAM_DONE")
+            ) {
+              const doneMeta = JSON.parse(chunk);
+              // Persist to DB
+              const submission = await storage.createAssessmentSubmission({
+                ...data,
+                score: doneMeta.score,
+                feedback: doneMeta.feedback,
+                flagged: doneMeta.flagged,
+              });
+  
+              // Emit a custom “done” event with the new submission ID
+              res.write(
+                `event: done\ndata: ${JSON.stringify({
+                  submissionId: submission.id,
+                })}\n\n`
+              );
+  
+              // Optionally close from server side
+              res.write("event: close\n\n");
+              return res.end();
+            }
+  
+            // Stream each token
+            // (we backslash-escape any newlines in the chunk)
+            const safe = chunk.replace(/\n/g, "\\n");
+            res.write(`data: ${safe}\n\n`);
+          }
+        } catch (streamErr) {
+          console.error("Streaming error:", streamErr);
+          res.write(
+            `event: error\ndata: ${JSON.stringify({
+              message: "AI streaming failed",
+            })}\n\n`
+          );
+          return res.end();
+        }
+      }
+    );
+  
   app.post('/api/assessment/submit', isAuthenticated, async (req, res) => {
     const user = req.user as any;
     const data = validateRequest(clientAssessmentSubmissionSchema, req, res);
