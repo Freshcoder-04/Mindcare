@@ -1,2 +1,12 @@
 ./*/.DS_Store
 *.DS_Store
+# ignore any node_modules
+/node_modules/
+
+
+# ignore build outputs
+/dist/
+/.vite/
+
+# ignore environment files
+.env
