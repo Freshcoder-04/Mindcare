@@ -126,6 +126,7 @@ export const insertAssessmentSubmissionSchema = createInsertSchema(assessmentSub
 export const insertResourceSchema = createInsertSchema(resources).omit({
   id: true,
   createdAt: true,
+  createdBy: true,
 });
 
 export const insertSavedResourceSchema = createInsertSchema(savedResources).omit({

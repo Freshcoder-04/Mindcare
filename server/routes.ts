@@ -216,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Counselors: Create assessment question
   app.post('/api/assessment/questions', isCounselor, async (req, res) => {
     const user = req.user as any;
-    const data = validateRequest(insertAssessmentQuestionSchema, req, res);
+    const data = validateRequest(insertAssessmentQuestionSchema, req, res) as any;
     if (!data) return;
     
     try {
@@ -321,152 +321,357 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch flagged submissions' });
     }
   });
-  
   // ===== Resource Routes =====
-  
-  // Get all resources
-  app.get('/api/resources', async (req, res) => {
+
+// 1) List / filter all resources
+app.get('/api/resources', async (req, res) => {
+  try {
+    const { category } = req.query as { category?: string };
+    // ignore "all" or missing; otherwise filter by category
+    const resources = await storage.getResources(
+      category && category !== 'all' ? category : undefined
+    );
+    res.json(resources);
+  } catch (error) {
+    console.error('[ROUTES] resources-list-error:', error);
+    res.status(500).json({ message: 'Failed to fetch resources' });
+  }
+});
+
+// 2) Get the current user’s saved resources
+app.get(
+  '/api/resources/saved',
+  isAuthenticated,
+  async (req, res) => {
+    console.log('[ROUTES] GET /api/resources/saved **FIRE**');
     try {
-      const { category } = req.query;
-      const resources = await storage.getResources(category as string | undefined);
-      res.json(resources);
+      const user = req.user as any;
+      const savedRows = await storage.getSavedResources(user.id);
+      const full = await Promise.all(
+        savedRows.map(sr => storage.getResource(sr.resourceId))
+      );
+      res.json(full.filter(r => !!r));
     } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch resources' });
+      console.error('[ROUTES] saved-error:', error);
+      res.status(500).json({ message: 'Failed to fetch saved resources' });
     }
-  });
-  
-  // Get a specific resource
-  app.get('/api/resources/:id', async (req, res) => {
-    const { id } = req.params;
-    
+  }
+);
+
+// 3) Fetch a single resource by numeric ID
+app.get(
+  '/api/resources/:id(\\d+)',
+  async (req, res) => {
+    console.log('[ROUTES] GET /api/resources/:id **FIRE**');
+    const id = Number(req.params.id);
     try {
-      const resource = await storage.getResource(parseInt(id));
-      
+      const resource = await storage.getResource(id);
       if (!resource) {
         return res.status(404).json({ message: 'Resource not found' });
       }
-      
       res.json(resource);
     } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch resource' });
+      console.error('[ROUTES] resource-by-id-error:', error);
+      res.status(500).json({ message: 'Failed to fetch resourceok' });
     }
-  });
-  
-  // Counselors: Create resource
-  app.post('/api/resources', isCounselor, async (req, res) => {
+  }
+);
+
+// 4) Counselors only: create a new resource
+app.post(
+  '/api/resources',
+  isCounselor,
+  async (req, res) => {
     const user = req.user as any;
-    const data = validateRequest(insertResourceSchema, req, res);
+    const data = validateRequest(insertResourceSchema, req, res) as any;
     if (!data) return;
-    
     try {
-      // Set the creator ID to the current counselor
       data.createdBy = user.id;
-      
       const resource = await storage.createResource(data);
       res.status(201).json(resource);
     } catch (error) {
+      console.error('[ROUTES] create-error:', error);
       res.status(500).json({ message: 'Failed to create resource' });
     }
-  });
-  
-  // Counselors: Update resource
-  app.put('/api/resources/:id', isCounselor, async (req, res) => {
-    const { id } = req.params;
-    
+  }
+);
+
+// 5) Counselors only: update by numeric ID
+app.put(
+  '/api/resources/:id(\\d+)',
+  isCounselor,
+  async (req, res) => {
+    const id = Number(req.params.id);
     try {
-      const resource = await storage.updateResource(parseInt(id), req.body);
-      
+      const resource = await storage.updateResource(id, req.body);
       if (!resource) {
         return res.status(404).json({ message: 'Resource not found' });
       }
-      
       res.json(resource);
     } catch (error) {
+      console.error('[ROUTES] update-error:', error);
       res.status(500).json({ message: 'Failed to update resource' });
     }
-  });
-  
-  // Counselors: Delete resource
-  app.delete('/api/resources/:id', isCounselor, async (req, res) => {
-    const { id } = req.params;
-    
+  }
+);
+
+// 6) Counselors only: delete by numeric ID
+app.delete(
+  '/api/resources/:id(\\d+)',
+  isCounselor,
+  async (req, res) => {
+    const id = Number(req.params.id);
     try {
-      const success = await storage.deleteResource(parseInt(id));
-      
+      const success = await storage.deleteResource(id);
       if (!success) {
         return res.status(404).json({ message: 'Resource not found' });
       }
-      
       res.json({ message: 'Resource deleted successfully' });
     } catch (error) {
+      console.error('[ROUTES] delete-error:', error);
       res.status(500).json({ message: 'Failed to delete resource' });
     }
-  });
-  
-  // Save a resource (star/favorite)
-  app.post('/api/resources/:id/save', isAuthenticated, async (req, res) => {
+  }
+);
+
+// 7) Authenticated users: save (star) a resource
+app.post(
+  '/api/resources/:id(\\d+)/save',
+  isAuthenticated,
+  async (req, res) => {
     const user = req.user as any;
-    const { id } = req.params;
-    const resourceId = parseInt(id);
-    
+    const resourceId = Number(req.params.id);
     try {
-      // Check if resource exists
       const resource = await storage.getResource(resourceId);
-      
       if (!resource) {
         return res.status(404).json({ message: 'Resource not found' });
       }
-      
-      // Save the resource
-      const savedResource = await storage.saveResource({
-        userId: user.id,
-        resourceId
-      });
-      
-      res.status(201).json(savedResource);
+      const saved = await storage.saveResource({ userId: user.id, resourceId });
+      res.status(201).json(saved);
     } catch (error) {
+      console.error('[ROUTES] save-error:', error);
       res.status(500).json({ message: 'Failed to save resource' });
     }
-  });
-  
-  // Unsave a resource (unstar/unfavorite)
-  app.delete('/api/resources/:id/save', isAuthenticated, async (req, res) => {
+  }
+);
+
+// 8) Authenticated users: unsave (unstar) a resource
+app.delete(
+  '/api/resources/:id(\\d+)/save',
+  isAuthenticated,
+  async (req, res) => {
     const user = req.user as any;
-    const { id } = req.params;
-    const resourceId = parseInt(id);
-    
+    const resourceId = Number(req.params.id);
     try {
       const success = await storage.unsaveResource(user.id, resourceId);
-      
       if (!success) {
         return res.status(404).json({ message: 'Saved resource not found' });
       }
-      
       res.json({ message: 'Resource unsaved successfully' });
     } catch (error) {
+      console.error('[ROUTES] unsave-error:', error);
       res.status(500).json({ message: 'Failed to unsave resource' });
     }
-  });
+  }
+);
+
+  // // ===== Resource Routes =====
   
-  // Get user's saved resources
-  app.get('/api/resources/saved', isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+  // // Get all resources
+  // app.get('/api/resources', async (req, res) => {
+  //   try {
+  //     const { category } = req.query as { category?: string };
+  //     // If category is missing or explicitly "all", ignore it; otherwise pass it
+  //     const resources = await storage.getResources(
+  //       category && category !== 'all' ? category : undefined
+  //     );
+  //     res.json(resources);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Failed to fetch resources' });
+  //   }
+  // });
+  
+  // app.get(
+  //   '/api/resources/saved',
+  //   isAuthenticated,
+  //   async (req, res) => {
+  //   console.log('[ROUTES] GET /api/resources/saved **FIRE**');
+  //     try {
+  //       const user = req.user as any;
+  //       // fetch the join‐rows
+  //       const savedRows = await storage.getSavedResources(user.id);
+  //       // map to the full resource object
+  //       const full = await Promise.all(
+  //         savedRows.map((sr) => storage.getResource(sr.resourceId))
+  //       );
+  //       res.json(full.filter((r): r is any => !!r));
+  //     } catch (error) {
+  //       console.error('[ROUTES] saved-error:', err);
+  //       res.status(500).json({ message: 'Failed to fetch saved resources' });
+  //     }
+  //   }
+  // );
+
+  // app.get(
+  //   '/api/resources/:id(\\d+)',
+  //   async (req, res) => {
+  //     console.log('[ROUTES] GET /api/resources/:id **FIRE**');
+  //     const id = Number(req.params.id);
+  //     try {
+  //       const resource = await storage.getResource(id);
+  //       if (!resource) {
+  //         return res.status(404).json({ message: 'Resource not found' });
+  //       }
+  //       res.json(resource);
+  //     } catch (error) {
+  //       res.status(500).json({ message: 'Failed to fetch resource' });
+  //     }
+  //   }
+  // );
+  // // Get a specific resource
+  // // app.get('/api/resources/:id', async (req, res) => {
+  // //   const { id } = req.params;
     
-    try {
-      const savedResources = await storage.getSavedResources(user.id);
+  // //   try {
+  // //     const resource = await storage.getResource(parseInt(id));
       
-      // Get the full resource details
-      const resourceIds = savedResources.map(sr => sr.resourceId);
-      const resources = await Promise.all(
-        resourceIds.map(id => storage.getResource(id))
-      );
+  // //     if (!resource) {
+  // //       return res.status(404).json({ message: 'Resource not found' });
+  // //     }
       
-      // Filter out any undefined resources
-      res.json(resources.filter(Boolean));
-    } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch saved resources' });
-    }
-  });
+  // //     res.json(resource);
+  // //   } catch (error) {
+  // //     res.status(500).json({ message: 'Failed to fetch resource' });
+  // //   }
+  // // });
+
+  // app.get('/api/resources/:id(\\d+)', async (req, res) => {
+  //   const id = Number(req.params.id);
+  //   try {
+  //     const r = await storage.getResource(id);
+  //     if (!r) return res.status(404).json({ message: 'Resource not found' });
+  //     res.json(r);
+  //   } catch {
+  //     res.status(500).json({ message: 'Failed to fetch resource' });
+  //   }
+  // });
+  
+  // // Counselors: Create resource
+  // app.post('/api/resources', isCounselor, async (req, res) => {
+  //   const user = req.user as any;
+  //   const data = validateRequest(insertResourceSchema, req, res) as any;
+  //   if (!data) return;
+    
+  //   try {
+  //     // Set the creator ID to the current counselor
+  //     data.createdBy = user.id;
+      
+  //     const resource = await storage.createResource(data);
+  //     res.status(201).json(resource);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Failed to create resource' });
+  //   }
+  // });
+  
+  // // Counselors: Update resource
+  // app.put('/api/resources/:id', isCounselor, async (req, res) => {
+  //   const { id } = req.params;
+    
+  //   try {
+  //     const resource = await storage.updateResource(parseInt(id), req.body);
+      
+  //     if (!resource) {
+  //       return res.status(404).json({ message: 'Resource not found' });
+  //     }
+      
+  //     res.json(resource);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Failed to update resource' });
+  //   }
+  // });
+  
+  // // Counselors: Delete resource
+  // app.delete('/api/resources/:id', isCounselor, async (req, res) => {
+  //   const { id } = req.params;
+    
+  //   try {
+  //     const success = await storage.deleteResource(parseInt(id));
+      
+  //     if (!success) {
+  //       return res.status(404).json({ message: 'Resource not found' });
+  //     }
+      
+  //     res.json({ message: 'Resource deleted successfully' });
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Failed to delete resource' });
+  //   }
+  // });
+  
+  // // Save a resource (star/favorite)
+  // app.post('/api/resources/:id/save', isAuthenticated, async (req, res) => {
+  //   const user = req.user as any;
+  //   const { id } = req.params;
+  //   const resourceId = parseInt(id);
+    
+  //   try {
+  //     // Check if resource exists
+  //     const resource = await storage.getResource(resourceId);
+      
+  //     if (!resource) {
+  //       return res.status(404).json({ message: 'Resource not found' });
+  //     }
+      
+  //     // Save the resource
+  //     const savedResource = await storage.saveResource({
+  //       userId: user.id,
+  //       resourceId
+  //     });
+      
+  //     res.status(201).json(savedResource);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Failed to save resource' });
+  //   }
+  // });
+  
+  // // Unsave a resource (unstar/unfavorite)
+  // app.delete('/api/resources/:id/save', isAuthenticated, async (req, res) => {
+  //   const user = req.user as any;
+  //   const { id } = req.params;
+  //   const resourceId = parseInt(id);
+    
+  //   try {
+  //     const success = await storage.unsaveResource(user.id, resourceId);
+      
+  //     if (!success) {
+  //       return res.status(404).json({ message: 'Saved resource not found' });
+  //     }
+      
+  //     res.json({ message: 'Resource unsaved successfully' });
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Failed to unsave resource' });
+  //   }
+  // });
+  
+  // // Get user's saved resources
+  // // app.get('/api/resources/saved', isAuthenticated, async (req, res) => {
+  // //   const user = req.user as any;
+    
+  // //   try {
+  // //     const savedResources = await storage.getSavedResources(user.id);
+      
+  // //     // Get the full resource details
+  // //     const resourceIds = savedResources.map(sr => sr.resourceId);
+  // //     const resources = await Promise.all(
+  // //       resourceIds.map(id => storage.getResource(id))
+  // //     );
+      
+  // //     // Filter out any undefined resources
+  // //     res.json(resources.filter(Boolean));
+  // //   } catch (error) {
+      
+  // //     res.status(500).json({ message: 'Failed to fetch saved resources' });
+  // //   }
+  // // });
   
   // ===== Chat Routes =====
   

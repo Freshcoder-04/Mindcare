@@ -100,3 +100,28 @@ export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + "...";
 }
+
+export function toEmbedUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    let id: string | null = null;
+
+    // standard YouTube watch URL
+    if (
+      url.hostname.includes("youtube.com") &&
+      (id = url.searchParams.get("v"))
+    ) {
+      return `https://www.youtube.com/embed/${id}`;
+    }
+    // short YouTube URL
+    if (url.hostname.includes("youtu.be")) {
+      id = url.pathname.slice(1);
+      return `https://www.youtube.com/embed/${id}`;
+    }
+
+    // fallback to whatever was passed
+    return raw;
+  } catch {
+    return raw;
+  }
+}
