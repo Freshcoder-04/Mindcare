@@ -1,0 +1,50 @@
+@startuml Slot Booking and Appointments Sequence Diagram
+
+actor User
+participant "Appointment Calendar" as calendar
+participant "Available Slots" as slots
+participant "Appointment Management" as mgmt
+participant "IStorage" as storage
+database "Database" as db
+
+' View Available Slots Flow
+User -> calendar: View Calendar
+calendar -> storage: getAvailableSlots()
+storage -> db: Query Available Slots
+db --> storage: Return Slots
+storage --> calendar: Return Slots
+calendar -> User: Display Calendar with Slots
+
+' Book Appointment Flow
+User -> calendar: Select Slot
+calendar -> storage: getAvailableSlot(id)
+storage -> db: Query Slot
+db --> storage: Return Slot
+storage --> calendar: Return Slot
+calendar -> mgmt: Create Appointment
+mgmt -> storage: createAppointment()
+storage -> db: Store Appointment
+storage -> storage: updateAvailableSlot(isBooked=true)
+db --> storage: Appointment Stored
+storage --> mgmt: Return Appointment
+mgmt --> calendar: Booking Confirmed
+calendar -> User: Show Confirmation
+
+' Cancel Appointment Flow
+User -> mgmt: Cancel Appointment
+mgmt -> storage: updateAppointment(status=canceled)
+storage -> db: Update Appointment
+storage -> storage: updateAvailableSlot(isBooked=false)
+db --> storage: Update Confirmed
+storage --> mgmt: Return Updated Appointment
+mgmt -> User: Show Cancellation Confirmation
+
+' View Appointments Flow
+User -> mgmt: View Appointments
+mgmt -> storage: getAppointments(userId)
+storage -> db: Query Appointments
+db --> storage: Return Appointments
+storage --> mgmt: Return Appointments
+mgmt -> User: Display Appointments
+
+@enduml

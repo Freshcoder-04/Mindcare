@@ -17,8 +17,17 @@ checkDbConnection()
     }
     return runMigrations();
   })
-  .then(() => {
+  .then(async () => {
     log("Database setup completed successfully", "db");
+    
+    // Initialize default PostgreSQL data after migrations
+    try {
+      const pgStorage = new PgStorage();
+      await pgStorage.initializeDefaultData();
+      log("PostgreSQL storage initialized with default data", "db");
+    } catch (error) {
+      log(`Error initializing PostgreSQL storage: ${error}`, "db");
+    }
   })
   .catch(error => {
     log(`Database setup error: ${error}`, "db");

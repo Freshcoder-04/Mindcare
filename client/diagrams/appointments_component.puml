@@ -1,0 +1,23 @@
+@startuml Slot Booking and Appointments Subsystem
+
+' Component Diagram
+package "Appointment Subsystem" {
+    [Appointment Calendar] as calendar
+    [Available Slots] as slots
+    [Appointment Management] as appointmentMgmt
+    [Appointment History] as history
+}
+
+package "Database" {
+    [Available Slots] as slotsDB
+    [Appointments] as appointmentsDB
+}
+
+' Relationships
+calendar --> slotsDB : "Fetches available slots"
+slots --> slotsDB : "Manages slots"
+appointmentMgmt --> appointmentsDB : "CRUD operations"
+history --> appointmentsDB : "Fetches history"
+appointmentMgmt --> slotsDB : "Updates slot status"
+
+@enduml
