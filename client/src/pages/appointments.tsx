@@ -10,10 +10,12 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Appointments() {
   const { toast } = useToast();
   const [canceling, setCanceling] = useState<number | null>(null);
+  const { user } = useAuth();
   
   // Fetch available slots
   const { data: availableSlots, isLoading: loadingSlots } = useQuery({
@@ -27,12 +29,13 @@ export default function Appointments() {
   
   // Fetch user appointments
   const { data: appointments, isLoading: loadingAppointments } = useQuery({
-    queryKey: ['/api/appointments'],
+    queryKey: ['/api/appointments', user?.id],
     queryFn: async () => {
       const res = await fetch('/api/appointments', { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch appointments");
       return res.json();
     },
+    enabled: !!user, // only run if a user is present
   });
   
   const handleCancelAppointment = async (appointmentId: number) => {
@@ -42,13 +45,14 @@ export default function Appointments() {
       await apiRequest("PUT", `/api/appointments/${appointmentId}/cancel`);
       
       toast({
-        title: "Appointment Canceled",
-        description: "Your appointment has been canceled successfully.",
+        title: "Appointment cancelled",
+        description: "Your appointment has been cancelled successfully.",
       });
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/appointments/slots'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/counselor/slots'] });
     } catch (error) {
       toast({
         title: "Cancellation Failed",
@@ -179,9 +183,9 @@ export default function Appointments() {
                     <p className="text-neutral-500 text-sm mb-4">
                       You don't have any scheduled appointments with counselors.
                     </p>
-                    <Button variant="outline" onClick={() => document.querySelector('button[value="book"]')?.click()}>
+                    {/* <Button variant="outline" onClick={() => (document.querySelector('button[value="book"]') as HTMLButtonElement)?.click()}>
                       Book an Appointment
-                    </Button>
+                    </Button> */}
                   </div>
                 )}
               </CardContent>

@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { useUserRole } from "@/contexts/user-role-context";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,22 +28,22 @@ const counselorNavItems: NavItem[] = [
   { href: "/counselor/assessments", label: "Assessments", icon: "ri-file-list-3-line" },
   { href: "/counselor/resources", label: "Manage Resources", icon: "ri-book-open-line" },
   { href: "/chat", label: "Chat", icon: "ri-chat-3-line" },
-  { href: "/appointments", label: "Appointments", icon: "ri-calendar-line" },
+  { href: "/counselor/slots", label: "Manage Available Slots", icon: "ri-calendar-line" },
+  { href: "/counselor/calendar", label: "My Calendar", icon: "ri-calendar-line" },
 ];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
-  const { role } = useUserRole();
   const [location] = useLocation();
   
-  const navItems = role === "counselor" ? counselorNavItems : studentNavItems;
+  const navItems = user?.role === "counselor" ? counselorNavItems : studentNavItems;
 
   return (
     <aside className="hidden lg:flex flex-col w-64 border-r border-neutral-200 bg-white h-screen">
       <div className="p-6">
         <div className="flex items-center">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white">
-            <i className="ri-mental-health-line text-xl"></i>
+          <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-white">
+            <img src="/logo.jpeg" alt="MindCare Logo" className="object-cover w-full h-full" />
           </div>
           <h1 className="ml-3 text-xl font-heading font-bold text-neutral-800">MindCare</h1>
         </div>
@@ -87,7 +86,7 @@ export default function Sidebar() {
         <Button
           variant="ghost"
           onClick={() => logout()}
-          className="flex items-center w-full justify-start text-neutral-600 hover:text-neutral-800 px-0"
+          className="flex items-center w-full justify-start text-neutral-600 hover:text-neutral-800"
         >
           <i className="ri-logout-box-line mr-2"></i>
           <span>Log out</span>

@@ -6,7 +6,7 @@ import { z } from "zod";
 // Enums
 export const userRoleEnum = pgEnum('user_role', ['student', 'counselor']);
 export const assessmentStatusEnum = pgEnum('assessment_status', ['pending', 'completed']);
-export const appointmentStatusEnum = pgEnum('appointment_status', ['scheduled', 'canceled', 'completed']);
+export const appointmentStatusEnum = pgEnum('appointment_status', ['scheduled', 'cancelled', 'completed']);
 export const resourceTypeEnum = pgEnum('resource_type', ['article', 'video', 'external_link']);
 export const chatRoomTypeEnum = pgEnum('chat_room_type', ['group', 'direct']);
 
@@ -16,6 +16,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: userRoleEnum("role").notNull().default('student'),
+  name: text("name").notNull().default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -142,6 +143,17 @@ export const insertAssessmentQuestionSchema = createInsertSchema(assessmentQuest
 export const insertAssessmentSubmissionSchema = createInsertSchema(assessmentSubmissions).omit({
   id: true,
   createdAt: true,
+});
+
+// Define a schema for client assessment submissions (only requires responses)
+export const clientAssessmentSubmissionSchema = createInsertSchema(assessmentSubmissions).omit({
+  id: true,
+  createdAt: true,
+  userId: true,
+  score: true,
+  feedback: true,
+  flagged: true,
+
 });
 
 export const insertResourceSchema = createInsertSchema(resources).omit({

@@ -12,8 +12,8 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardContent className="p-6">
           <div className="text-center mb-6">
-            <div className="w-16 h-16 rounded-lg bg-primary flex items-center justify-center text-white mx-auto mb-4">
-              <i className="ri-mental-health-line text-2xl"></i>
+            <div className="w-20 h-20 rounded-lg bg-primary flex items-center justify-center text-white mx-auto mb-4">
+              <img src="/logo.jpeg" alt="MindCare Logo" className="object-cover w-full h-full" />
             </div>
             <h2 className="text-2xl font-heading font-bold text-neutral-800">Welcome to MindCare</h2>
             <p className="text-neutral-600 mt-2">Your anonymous mental health companion</p>

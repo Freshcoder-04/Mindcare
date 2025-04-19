@@ -1,14 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { useUserRole } from "@/contexts/user-role-context";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function MobileNav() {
   const [location] = useLocation();
-  const { role } = useUserRole();
+  const { user } = useAuth();
   
   return (
     <nav className="lg:hidden flex items-center justify-between fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-6 py-2 z-10">
-      {role === "student" ? (
+      {user?.role === "student" ? (
         <>
           <NavItem
             href="/dashboard"
@@ -68,10 +68,10 @@ export default function MobileNav() {
             isActive={location === "/chat"}
           />
           <NavItem
-            href="/appointments"
+            href="/counselor/slots"
             icon="ri-calendar-line"
             label="Appts"
-            isActive={location === "/appointments"}
+            isActive={location === "/counselor/slots"}
           />
         </>
       )}
@@ -89,9 +89,23 @@ interface NavItemProps {
 function NavItem({ href, icon, label, isActive }: NavItemProps) {
   return (
     <Link href={href}>
-      <a className={cn("flex flex-col items-center py-2", isActive ? "text-primary" : "text-neutral-500")}>
-        <i className={cn(icon, "text-xl")}></i>
-        <span className="text-xs mt-1">{label}</span>
+      <a className="flex flex-col items-center">
+        <div
+          className={cn(
+            "w-12 h-12 rounded-full flex items-center justify-center",
+            isActive ? "text-primary bg-primary-light" : "text-neutral-600"
+          )}
+        >
+          <i className={`${icon} text-xl`}></i>
+        </div>
+        <span
+          className={cn(
+            "text-xs mt-1",
+            isActive ? "text-primary font-medium" : "text-neutral-600"
+          )}
+        >
+          {label}
+        </span>
       </a>
     </Link>
   );

@@ -132,17 +132,13 @@ export default function LoginForm() {
               </FormItem>
             )}
           />
-          
-          <Button variant="link" type="button" className="h-auto p-0 text-primary">
-            Need help?
-          </Button>
         </div>
         
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Logging in..." : "Login"}
         </Button>
         
-        <div className="text-center mt-4">
+        {/* <div className="text-center mt-4">
           <span className="text-sm text-neutral-600">Need an account? </span>
           <Button 
             variant="link" 
@@ -152,7 +148,7 @@ export default function LoginForm() {
           >
             Register here
           </Button>
-        </div>
+        </div> */}
       </form>
     </Form>
   );

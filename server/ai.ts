@@ -1,216 +1,138 @@
-// This file handles AI analysis for the self-assessment module
-import { InsertAssessmentSubmission, AssessmentQuestion } from '@shared/schema';
-import OpenAI from "openai";
+// server/ai.ts
 
-// Initialize OpenAI client
-const openai = new OpenAI({ apiKey: "OPENAIKEY" });
+import { IAIAdapter, AIAdapterFactory } from "./ai-adapter";
+import { InsertAssessmentSubmission, AssessmentQuestion } from "@shared/schema";
 
-/**
- * Analyzes a student's assessment submission using OpenAI to generate personalized feedback
- * 
- * @param submission The student's assessment submission with responses
- * @param questions Optional array of assessment questions for better context
- * @returns Analysis results with score, personalized feedback, and flagged status
- */
 export async function analyzeAssessment(
   submission: InsertAssessmentSubmission,
   questions?: AssessmentQuestion[]
 ): Promise<{ score: number; feedback: string; flagged: boolean }> {
-  // First calculate the raw score
+  // Calculate the raw score and construct a summary string for context.
   let totalScore = 0;
   let maxPossibleScore = 0;
-  
-  // Create a summary of the assessment responses
   let assessmentSummary = "Student Assessment Results:\n\n";
-  
+
   for (const [questionId, responseValue] of Object.entries(submission.responses)) {
     const qId = parseInt(questionId, 10);
-    
     if (questions) {
-      // If we have the question details, include them in the summary
-      const question = questions.find(q => q.id === qId);
-      
+      const question = questions.find((q) => q.id === qId);
       if (question) {
         const selectedOption = question.options[responseValue];
         assessmentSummary += `Question: ${question.question}\n`;
-        assessmentSummary += `Response: ${selectedOption} (${responseValue + 1} out of ${question.options.length})\n\n`;
-        
+        assessmentSummary += `Response: ${selectedOption} (${
+          responseValue + 1
+        } out of ${question.options.length})\n\n`;
         totalScore += responseValue * question.weight;
         maxPossibleScore += (question.options.length - 1) * question.weight;
-      } else {
-        // Fall back to basic scoring if question not found
-        totalScore += responseValue;
-        maxPossibleScore += 4; // Assuming 5 options (0-4)
+        continue;
       }
-    } else {
-      // Basic scoring without question details
-      totalScore += responseValue;
-      maxPossibleScore += 4; // Assuming 5 options (0-4)
     }
+    // Fallback scoring if question metadata missing
+    totalScore += responseValue;
+    maxPossibleScore += 4;
   }
-  
-  // Normalize score to 0-100 scale
+
+  // Normalize the score on a 0–100 scale.
   const normalizedScore = Math.round((totalScore / maxPossibleScore) * 100);
-  
-  // Determine if the score is above threshold for flagging (70%)
   const flagged = normalizedScore > 70;
-  
+
+  const prompt = `
+${assessmentSummary}
+
+Based on the above results, provide personalized mental health feedback for the student.
+The student's normalized score is ${normalizedScore}/100, where a higher score indicates higher stress levels or poor mental health.
+
+Your feedback should:
+1. Be empathetic and supportive.
+2. Provide 2-3 actionable recommendations.
+3. If the score is above 70, suggest speaking with a counselor.
+
+Format your response strictly as a JSON object with a single key "feedback" that contains your message.
+DO NOT include any extra text outside the JSON.
+  `;
+
+  // Adapter invocation
+  const adapter: IAIAdapter = AIAdapterFactory.getAdapter();
   try {
-    // Use OpenAI to generate personalized feedback
-    const prompt = `
-      ${assessmentSummary}
-      
-      Based on the assessment results above, provide personalized mental health feedback for a student.
-      The student's normalized score is ${normalizedScore}/100, where higher scores indicate higher stress/anxiety levels.
-      
-      Your feedback should:
-      1. Be compassionate and supportive
-      2. Acknowledge their specific challenges based on their responses
-      3. Provide 2-3 specific, actionable recommendations
-      4. If the score is above 70, encourage them to speak with a counselor
-      
-      Format your response as a JSON object with a single field called "feedback" containing your message.
-    `;
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      messages: [
-        {
-          role: "system",
-          content: "You are a compassionate mental health advisor for college students. Your advice is evidence-based and supportive."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" }
-    });
-    
-    // Parse the response 
-    const content = response.choices[0]?.message?.content;
-    const result = content ? JSON.parse(content) : {};
-    
+    let raw = await adapter.generateFeedback(prompt);
+
+    raw = raw.replace(/^```(json)?\s*/i, "").replace(/```$/, "").trim();
+    // parse JSON or fallback
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (parseError) {
+      console.error("Error parsing AI response JSON:", parseError);
+      parsed = { feedback: getFallbackFeedback(normalizedScore) };
+    }
+
     return {
       score: normalizedScore,
-      feedback: result.feedback || "Thank you for completing the assessment. Based on your responses, we've generated personalized feedback to help support your mental health journey.",
+      feedback: parsed.feedback || getFallbackFeedback(normalizedScore),
       flagged,
     };
   } catch (error) {
-    console.error("OpenAI API error:", error);
-    
-    // Fallback feedback if API fails
-    let feedback = "Thank you for completing the assessment. ";
-    
-    if (normalizedScore < 30) {
-      feedback += "Your responses indicate you're managing well. Keep up the good self-care practices and remember that seeking support is always an option if things change.";
-    } else if (normalizedScore < 50) {
-      feedback += "Your responses suggest mild stress levels. Consider incorporating more stress-reduction activities into your routine, like meditation or exercise.";
-    } else if (normalizedScore < 70) {
-      feedback += "Your responses indicate moderate stress levels. It might be helpful to talk to someone about what you're experiencing. Consider booking an appointment with a counselor.";
-    } else {
-      feedback += "Your responses suggest you're experiencing significant stress. We recommend speaking with a counselor soon to discuss strategies that might help. A counselor has been notified and may reach out to you.";
-    }
-    
+    console.error("AI provider error:", error);
     return {
       score: normalizedScore,
-      feedback,
+      feedback: getFallbackFeedback(normalizedScore),
       flagged,
     };
   }
 }
 
+function getFallbackFeedback(normalizedScore: number): string {
+  if (normalizedScore < 30) {
+    return "Your assessment suggests you are handling stress well. Keep up your good self-care practices!";
+  } else if (normalizedScore < 50) {
+    return "Your responses indicate mild stress. Consider incorporating stress-reduction activities like meditation and exercise.";
+  } else if (normalizedScore < 70) {
+    return "Your assessment indicates moderate stress levels. It may be helpful to discuss your feelings with someone you trust or consider speaking with a counselor.";
+  } else {
+    return "Your responses suggest high stress levels. We strongly recommend speaking with a counselor to discuss strategies for better stress management.";
+  }
+}
+
 /**
- * In a production implementation, we would use the OpenAI API like this:
- * 
- * import OpenAI from "openai";
- * 
- * const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
- * 
- * export async function analyzeAssessment(
- *   submission: InsertAssessmentSubmission,
- *   questions: AssessmentQuestion[]
- * ): Promise<{ score: number; feedback: string; flagged: boolean }> {
- *   // First calculate the raw score
- *   let totalScore = 0;
- *   let maxPossibleScore = 0;
- *   
- *   // Create a prompt with the questions and responses
- *   let assessmentSummary = "Student Assessment Results:\n\n";
- *   
- *   for (const [questionId, responseValue] of Object.entries(submission.responses)) {
- *     const qId = parseInt(questionId, 10);
- *     const question = questions.find(q => q.id === qId);
- *     
- *     if (question) {
- *       const selectedOption = question.options[responseValue];
- *       assessmentSummary += `Question: ${question.question}\n`;
- *       assessmentSummary += `Response: ${selectedOption} (${responseValue + 1} out of ${question.options.length})\n\n`;
- *       
- *       totalScore += responseValue * question.weight;
- *       maxPossibleScore += (question.options.length - 1) * question.weight;
- *     }
- *   }
- *   
- *   const normalizedScore = Math.round((totalScore / maxPossibleScore) * 100);
- *   const flagged = normalizedScore > 70;
- *   
- *   // Use OpenAI to generate personalized feedback
- *   const prompt = `
- *     ${assessmentSummary}
- *     
- *     Based on the assessment results above, provide personalized mental health feedback for a student.
- *     The student's normalized score is ${normalizedScore}/100, where higher scores indicate higher stress/anxiety levels.
- *     
- *     Your feedback should:
- *     1. Be compassionate and supportive
- *     2. Acknowledge their specific challenges based on their responses
- *     3. Provide 2-3 specific, actionable recommendations
- *     4. If the score is above 70, encourage them to speak with a counselor
- *     
- *     Format your response as a JSON object with a single field called "feedback" containing your message.
- *   `;
- *   
- *   try {
- *     const response = await openai.chat.completions.create({
- *       model: "gpt-4o",
- *       messages: [
- *         {
- *           role: "system",
- *           content: "You are a compassionate mental health advisor for college students. Your advice is evidence-based and supportive."
- *         },
- *         {
- *           role: "user",
- *           content: prompt
- *         }
- *       ],
- *       response_format: { type: "json_object" }
- *     });
- *     
- *     const result = JSON.parse(response.choices[0].message.content);
- *     
- *     return {
- *       score: normalizedScore,
- *       feedback: result.feedback,
- *       flagged,
- *     };
- *   } catch (error) {
- *     console.error("OpenAI API error:", error);
- *     
- *     // Fallback feedback if API fails
- *     let feedback = "Thank you for completing the assessment. ";
- *     
- *     if (normalizedScore > 70) {
- *       feedback += "Your responses suggest you might benefit from speaking with a counselor. Consider booking an appointment.";
- *     } else {
- *       feedback += "Based on your responses, here are some self-care practices that might help: regular exercise, adequate sleep, and mindfulness meditation.";
- *     }
- *     
- *     return {
- *       score: normalizedScore,
- *       feedback,
- *       flagged,
- *     };
- *   }
- * }
+ * Analyzes user's mood and generates a supportive response
+ * @param mood The selected mood (low, neutral, good, great)
+ * @returns A supportive message based on the mood
  */
+export async function analyzeMood(mood: string): Promise<string> {
+
+  const prompt = `
+The user has indicated they are feeling "${mood}" today.
+
+Generate a short, supportive response (2-3 sentences) that:
+1. Acknowledges their current mood
+2. Offers a positive perspective or gentle encouragement
+3. Suggests a simple action they could take to maintain or improve their mood
+
+Keep the tone warm and conversational. The response should be direct, not in JSON format.
+  `;
+
+  const adapter: IAIAdapter = AIAdapterFactory.getAdapter();
+  try {
+    // Adapter returns raw text for non‑JSON prompts
+    const text = await adapter.generateFeedback(prompt);
+    return text.trim();
+  } catch (error) {
+    console.error("AI provider error:", error);
+    return getFallbackMoodResponse(mood);
+  }
+}
+
+function getFallbackMoodResponse(mood: string): string {
+  switch (mood.toLowerCase()) {
+    case "low":
+      return "It's okay to have difficult days. Remember that feelings are temporary, and there are people here to support you. Consider talking to someone you trust or doing a gentle activity you enjoy.";
+    case "neutral":
+      return "A neutral mood can be a good foundation for the day. Take a moment to appreciate the small things around you, and maybe try something that usually brings you joy.";
+    case "good":
+      return "It's great that you're feeling good! Use this positive energy to engage in activities you enjoy and connect with others. Keep up whatever is working for you!";
+    case "great":
+      return "Wonderful to hear you're feeling great! Your positive energy can be contagious—consider sharing your good mood with others and building on this momentum.";
+    default:
+      return "Thank you for sharing how you're feeling. Remember that MindCare is here to support you, whatever your mood may be.";
+  }
+}

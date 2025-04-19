@@ -8,6 +8,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, isSameDay } from "date-fns";
 import { AvailableSlot } from "@shared/schema";
+import { BookAppointmentCommand } from "@/commands/BookAppointmentCommand";
 
 interface AppointmentCalendarProps {
   availableSlots: AvailableSlot[];
@@ -34,27 +35,26 @@ export default function AppointmentCalendar({ availableSlots, isLoading }: Appoi
     setBookingSlot(slot);
     setIsBooking(true);
     
+    const command = new BookAppointmentCommand(
+      slot,
+      () => {
+        toast({
+          title: "Appointment Booked",
+          description: "Your appointment has been scheduled successfully.",
+        });
+        setBookingSlot(null);
+      },
+      (error) => {
+        toast({
+          title: "Booking Failed",
+          description: "There was an error booking your appointment. Please try again.",
+          variant: "destructive",
+        });
+      }
+    );
+
     try {
-      await apiRequest("POST", "/api/appointments", {
-        slotId: slot.id,
-      });
-      
-      toast({
-        title: "Appointment Booked",
-        description: "Your appointment has been scheduled successfully.",
-      });
-      
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/appointments/slots'] });
-      
-      setBookingSlot(null);
-    } catch (error) {
-      toast({
-        title: "Booking Failed",
-        description: "There was an error booking your appointment. Please try again.",
-        variant: "destructive",
-      });
+      await command.execute();
     } finally {
       setIsBooking(false);
     }

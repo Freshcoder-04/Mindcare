@@ -14,8 +14,16 @@ export function formatTime(date: Date | string, formatString: string = "h:mm a")
   return format(new Date(date), formatString);
 }
 
-export function formatDateTime(date: Date | string): string {
-  return format(new Date(date), "MMM d, yyyy 'at' h:mm a");
+export function formatDateTime(datetime: string | Date): string {
+  const date = new Date(datetime);
+  return date.toLocaleString("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 // Generate a random username (8-digit number)

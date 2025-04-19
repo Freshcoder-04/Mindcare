@@ -4,9 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import PageLayout from "@/components/layout/page-layout";
 import AssessmentForm from "@/components/assessment/assessment-form";
 import AssessmentResults from "@/components/assessment/assessment-results";
+import AssessmentHistory from "@/components/assessment/assessment-history";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { queryClient } from "@/lib/queryClient";
 
 export default function SelfAssessment() {
   const [, navigate] = useLocation();
@@ -18,18 +20,33 @@ export default function SelfAssessment() {
     queryKey: ['/api/assessment/questions'],
   });
   
+  // Start a new assessment
   const handleStartAssessment = () => {
     setShowForm(true);
     setResults(null);
   };
   
+  // Called when the assessment form completes
   const handleAssessmentComplete = (result: { score: number; feedback: string; flagged: boolean }) => {
     setResults(result);
     setShowForm(false);
+    queryClient.invalidateQueries({ queryKey: ['/api/assessment/submissions'] });
   };
   
   const handleBookAppointment = () => {
     navigate("/appointments");
+  };
+
+  // Callback for when a history item is clicked
+  const handleViewHistoryDetails = (submission: any) => {
+    // For example, display that submission's result.
+    // You might choose to show it in a modal or update a part of the page.
+    setResults({
+      score: submission.score,
+      feedback: submission.feedback,
+      flagged: submission.flagged,
+    });
+    // Optionally, scroll to the results section.
   };
   
   return (
@@ -38,6 +55,7 @@ export default function SelfAssessment() {
       description="Check in on your mental well-being with our confidential assessment tools"
     >
       <div className="max-w-4xl mx-auto">
+        {/* Assessment introduction when neither taking nor viewing a result */}
         {!showForm && !results && (
           <Card className="mb-6">
             <CardContent className="p-6">
@@ -114,6 +132,7 @@ export default function SelfAssessment() {
           </div>
         )}
         
+        {/* Render the assessment form if active */}
         {showForm && questions && (
           <AssessmentForm 
             questions={questions} 
@@ -121,6 +140,7 @@ export default function SelfAssessment() {
           />
         )}
         
+        {/* Render the current assessment results if available */}
         {results && (
           <AssessmentResults
             score={results.score}
@@ -130,24 +150,12 @@ export default function SelfAssessment() {
             onBookAppointment={handleBookAppointment}
           />
         )}
-        
-        {/* Previous Assessments Section */}
-        {!showForm && !results && (
-          <div className="mt-8">
-            <h3 className="text-xl font-heading font-semibold mb-4">Your Previous Assessments</h3>
-            
-            {/* Fetch and display previous assessments here */}
-            <div className="bg-white rounded-lg border border-neutral-200 p-6 text-center">
-              <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="ri-file-list-3-line text-2xl text-neutral-400"></i>
-              </div>
-              <h4 className="font-heading font-medium text-neutral-700 mb-2">No Previous Assessments</h4>
-              <p className="text-neutral-500 text-sm">
-                Once you complete an assessment, you'll be able to view your history here.
-              </p>
-            </div>
-          </div>
-        )}
+
+        {/* Always show the assessment history below the above sections */}
+        <div className="mt-8">
+          <h3 className="text-xl font-heading font-semibold mb-4">Your Previous Assessments</h3>
+          <AssessmentHistory onViewDetails={handleViewHistoryDetails} />
+        </div>
       </div>
     </PageLayout>
   );
