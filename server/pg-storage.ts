@@ -151,23 +151,39 @@ export class PgStorage implements IStorage {
     return result[0];
   }
 
+  
   async deleteResource(id: number): Promise<boolean> {
-    // Soft delete by setting active to false
-    const result = await db.update(schema.resources)
-      .set({ active: false })
-      .where(eq(schema.resources.id, id))
-      .returning();
-    return result.length > 0;
+    const result = await db.transaction(async (trx) => {
+      try {
+        // Delete from savedResources
+        await trx.delete(schema.savedResources)
+          .where(eq(schema.savedResources.resourceId, id));
+  
+        // Soft delete the resource
+        const updateResult = await trx.update(schema.resources)
+          .set({ active: false })
+          .where(eq(schema.resources.id, id))
+          .returning();
+  
+        return updateResult.length > 0;
+      } catch (error) {
+        console.error('[DELETE RESOURCE ERROR]', error);
+        throw error; // This will automatically trigger rollback
+      }
+    });
+  
+    return result;
   }
-
+  
+  
   // ===== Saved Resource Operations =====
 
+  
   async getSavedResources(userId: number): Promise<SavedResource[]> {
     return await db.select().from(schema.savedResources)
-      .where(eq(schema.savedResources.userId, userId))
+      .where(eq(schema.savedResources.userId, userId)) // Filter by userId
       .orderBy(desc(schema.savedResources.createdAt));
   }
-
   async saveResource(savedResource: InsertSavedResource): Promise<SavedResource> {
     // Check if already saved
     const existing = await db.select().from(schema.savedResources)

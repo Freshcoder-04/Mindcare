@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState, ReactNode } from "react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface User {
   id: number;
@@ -82,16 +82,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+
   const logout = async () => {
     try {
       await apiRequest("POST", "/api/auth/logout");
       setUser(null);
       setIsAuthenticated(false);
+      queryClient.removeQueries({ queryKey: ["/api/resources/saved"] }); // Clear saved resources query
     } catch (error) {
       console.error("Logout error:", error);
       throw error;
     }
   };
+
 
   return (
     <AuthContext.Provider
