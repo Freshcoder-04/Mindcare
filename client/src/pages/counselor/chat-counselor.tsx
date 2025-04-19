@@ -59,9 +59,9 @@ export default function CounselorChat() {
     <div className="p-4 border-b font-medium flex items-center justify-between">
     {/* <span> </span> */}
     <button className="bg-primary hover:bg-primary-dark text-white font-medium px-4 py-2 rounded-lg"
-      onClick={() => navigate("/appointments")}
+      onClick={() => navigate("/counselor/assessments")}
     >
-      Appoinments
+      Assessments
     </button>
       <span> </span>
     <button className="bg-primary hover:bg-primary-dark text-white font-medium px-4 py-2 rounded-lg"
