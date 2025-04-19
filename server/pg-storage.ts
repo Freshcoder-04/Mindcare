@@ -483,7 +483,8 @@ export class PgStorage implements IStorage {
       const generalRoom = await this.createChatRoom({
         name: "General Support",
         description: "A general chat room for all students to discuss mental health topics and get support.",
-        type: "group"
+        type: "group",
+        members: []
       });
 
       console.log("Database initialization completed successfully");
