@@ -15,6 +15,13 @@
       "when": 1745058787715,
       "tag": "0001_dazzling_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1745064028294,
+      "tag": "0002_old_starbolt",
+      "breakpoints": true
     }
   ]
 }
