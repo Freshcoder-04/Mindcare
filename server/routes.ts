@@ -483,24 +483,20 @@ app.get('/api/resources', async (req, res) => {
 });
 
 // 2) Get the current user's saved resources
-app.get(
-  '/api/resources/saved',
-  isAuthenticated,
-  async (req, res) => {
-    console.log('[ROUTES] GET /api/resources/saved **FIRE**');
-    try {
-      const user = req.user as any;
-      const savedRows = await storage.getSavedResources(user.id);
-      const full = await Promise.all(
-        savedRows.map(sr => storage.getResource(sr.resourceId))
-      );
-      res.json(full.filter(r => !!r));
-    } catch (error) {
-      console.error('[ROUTES] saved-error:', error);
-      res.status(500).json({ message: 'Failed to fetch saved resources' });
-    }
+app.get('/api/resources/saved', isAuthenticated, async (req, res) => {
+  console.log('[DEBUG] Logged in user ID:', req.user.id); // Log the user ID
+  try {
+    const user = req.user as any;
+    const savedRows = await storage.getSavedResources(user.id); // Fetch saved resources for this user
+    const full = await Promise.all(
+      savedRows.map(sr => storage.getResource(sr.resourceId))
+    );
+    res.json(full.filter(r => !!r)); // Filter out null/undefined resources
+  } catch (error) {
+    console.error('[ROUTES] saved-error:', error);
+    res.status(500).json({ message: 'Failed to fetch saved resources' });
   }
-);
+});
 
 // 3) Fetch a single resource by numeric ID
 app.get(
