@@ -70,13 +70,14 @@ export interface IStorage {
   getAppointments(userId?: number, role?: 'student' | 'counselor'): Promise<Appointment[]>;
   getAppointment(id: number): Promise<Appointment | undefined>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
-  updateAppointment(id: number, status: 'scheduled' | 'canceled' | 'completed'): Promise<Appointment | undefined>;
+  updateAppointment(id: number, status: 'scheduled' | 'cancelled' | 'completed'): Promise<Appointment | undefined>;
   
   // Available slot operations
   getAvailableSlots(counselorId?: number): Promise<AvailableSlot[]>;
   getAvailableSlot(id: number): Promise<AvailableSlot | undefined>;
   createAvailableSlot(slot: InsertAvailableSlot): Promise<AvailableSlot>;
   updateAvailableSlot(id: number, isBooked: boolean): Promise<AvailableSlot | undefined>;
+  deleteAvailableSlot(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -386,7 +387,7 @@ export class MemStorage implements IStorage {
     return newAppointment;
   }
 
-  async updateAppointment(id: number, status: 'scheduled' | 'canceled' | 'completed'): Promise<Appointment | undefined> {
+  async updateAppointment(id: number, status: 'scheduled' | 'cancelled' | 'completed'): Promise<Appointment | undefined> {
     const existingAppointment = this.appointments.get(id);
     if (!existingAppointment) return undefined;
     
@@ -425,6 +426,12 @@ export class MemStorage implements IStorage {
     existingSlot.isBooked = isBooked;
     this.availableSlots.set(id, existingSlot);
     return existingSlot;
+  }
+
+  async deleteAvailableSlot(id: number): Promise<boolean> {
+    const existingSlot = this.availableSlots.get(id);
+    if (!existingSlot) return false;
+    return this.availableSlots.delete(id);
   }
 }
 

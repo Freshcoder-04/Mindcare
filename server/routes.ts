@@ -121,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/auth/register', async (req, res) => {
     try {
       console.log("Registration request received:", req.body);
-      const { password, role } = req.body;
+      const { password, role, name } = req.body;
       
       if (!password) {
         console.log("Registration error: Password is required");
@@ -140,11 +140,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username,
         password,
         role: userRole,
+        name: userRole === "counselor" ? name : "",
       };
       
       console.log("Creating user with data:", { ...userData, password: '[REDACTED]' });
       const user = await storage.createUser(userData);
-      console.log("User created successfully:", { id: user.id, username: user.username, role: user.role });
+      console.log("User created successfully:", { id: user.id, username: user.username, role: user.role, name: user.name });
       
       req.login(user, (err) => {
         if (err) {
@@ -153,7 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         console.log("User logged in successfully after registration");
         return res.status(201).json({
-          user: { id: user.id, username: user.username, role: user.role },
+          user: { id: user.id, username: user.username, role: user.role, name: user.name },
           username: user.username,
         });
       });
@@ -442,7 +443,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to create resource' });
     }
   });
-  
+
+  // Counselors: Repeat slot
+  app.post('/api/appointments/slots/repeat', isCounselor, async (req: Request, res: Response) => {
+    const user = req.user as any;
+    // Expect payload: { startTime, endTime, repeatDays (array), repeatEndDate }
+    const { startTime, endTime, repeatDays, repeatEndDate } = req.body;
+    
+    if (!startTime || !endTime) {
+      return res.status(400).json({ message: 'Start time and end time are required' });
+    }
+    
+    try {
+      // Convert times to Date objects
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      const endRepeatDate = repeatEndDate ? new Date(repeatEndDate) : null;
+      
+      // Prepare an array to gather created slots
+      const createdSlots = [];
+      
+      // For simplicity, let's assume repeatDays is an array of weekday abbreviations, e.g., ["Mon", "Wed"]
+      // and you want to create slots between start date and repeat end date for each selected day.
+      // If no repeatDays are provided, create only one slot.
+      
+      if (repeatDays && repeatDays.length > 0 && endRepeatDate) {
+        // Start from the date of the start time, and iterate until repeat end date.
+        let current = new Date(start);
+        
+        while (current <= endRepeatDate) {
+          // Check if current weekday (for instance, using Intl.DateTimeFormat or current.getDay()) is in repeatDays.
+          // For example, map getDay() => "Sun", "Mon", ...
+          const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+          const currentDay = dayNames[current.getDay()];
+          
+          if (repeatDays.includes(currentDay)) {
+            // Create slot record using current day's date with provided startTime and endTime times.
+            // Adjust current to the same time-of-day as start and end.
+            const slotStart = new Date(current);
+            slotStart.setHours(start.getHours(), start.getMinutes(), 0, 0);
+            
+            const slotEnd = new Date(current);
+            slotEnd.setHours(end.getHours(), end.getMinutes(), 0, 0);
+            
+            // Insert slot via storage
+            const slot = await storage.createAvailableSlot({
+              counselorId: user.id,
+              startTime: slotStart,
+              endTime: slotEnd,
+            });
+            createdSlots.push(slot);
+          }
+          
+          // Increment current day by 1
+          current.setDate(current.getDate() + 1);
+        }
+      } else {
+        // No repeat specified - create a single slot
+        const slot = await storage.createAvailableSlot({
+          counselorId: user.id,
+          startTime: start,
+          endTime: end,
+        });
+        createdSlots.push(slot);
+      }
+      
+      res.status(201).json(createdSlots);
+    } catch (error) {
+      console.error("Failed to create repeated slots:", error);
+      res.status(500).json({ message: 'Failed to create available slots' });
+    }
+  });
+
+  // Counselors: Get available slots (Calendar view)
+  app.get('/api/counselor/slots', isCounselor, async (req: Request, res: Response) => {
+    // Since the counselor is authenticated and the request is through isCounselor middleware,
+    // we can safely cast req.user.
+    const user = req.user as any;
+    try {
+      // Fetch slots using the counselor's ID. You can adjust filtering here if you only want unbooked slots.
+      const slots = await storage.getAvailableSlots(user.id);
+      res.json(slots);
+    } catch (error) {
+      console.error("Error fetching counselor slots:", error);
+      res.status(500).json({ message: 'Failed to fetch counselor slots' });
+    }
+  });
+
   // Counselors: Update resource
   app.put('/api/resources/:id', isCounselor, async (req, res) => {
     const { id } = req.params;
@@ -590,7 +677,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       // Filter out slots that are already booked
-      const availableSlots = slots.filter(slot => !slot.isBooked);
+      const now = new Date();
+      const availableSlots = slots.filter(slot => !slot.isBooked && new Date(slot.startTime).getTime() > now.getTime());
       
       res.json(availableSlots);
     } catch (error) {
@@ -655,7 +743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { id } = req.params;
     
     try {
-      const appointment = await storage.updateAppointment(parseInt(id), 'canceled');
+      const appointment = await storage.updateAppointment(parseInt(id), 'cancelled');
       
       if (!appointment) {
         return res.status(404).json({ message: 'Appointment not found' });
@@ -712,6 +800,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+
+  // Counselors: Delete available slot
+  app.delete('/api/appointments/slots/:id', isCounselor, async (req, res) => {
+    const { id } = req.params;
+    const user = req.user as any;
+    
+    try {
+      // First verify that the slot belongs to the counselor
+      const slot = await storage.getAvailableSlot(parseInt(id));
+      if (!slot) {
+        return res.status(404).json({ message: 'Slot not found' });
+      }
+      
+      if (slot.counselorId !== user.id) {
+        return res.status(403).json({ message: 'Not authorized to delete this slot' });
+      }
+      
+      // If the slot is booked, don't allow deletion
+      if (slot.isBooked) {
+        return res.status(400).json({ message: 'Cannot delete a booked slot' });
+      }
+      
+      await storage.deleteAvailableSlot(parseInt(id));
+      res.json({ message: 'Slot deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete slot' });
+    }
+  });
+
   // WebSocket handling
   wss.on('connection', (socket) => {
     console.log('WebSocket client connected');

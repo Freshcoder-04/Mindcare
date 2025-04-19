@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AssessmentQuestion } from "@shared/schema";
 
-export default function CounselorAssessments() {
+export default function CounselorAssessments() {``
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("questions");
   const [showQuestionForm, setShowQuestionForm] = useState(false);

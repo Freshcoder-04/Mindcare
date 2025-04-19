@@ -30,10 +30,17 @@ const formSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string(),
   role: z.enum(["student", "counselor"]).default("student"),
+  name: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
-});
+}).refine(
+  (data) => data.role === "student" || (data.role === "counselor" && data.name && data.name.trim().length > 0),
+  {
+    message: "Name is required for counselors.",
+    path: ["name"],
+  }
+);
 
 export default function RegisterForm() {
   const { register } = useAuth();
@@ -48,9 +55,10 @@ export default function RegisterForm() {
     defaultValues: {
       password: "",
       confirmPassword: "",
+      name: "",
     },
   });
-
+  const selectedRole = form.watch("role");
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
@@ -225,7 +233,26 @@ export default function RegisterForm() {
               </FormItem>
             )}
           />
-          
+          {selectedRole === "counselor" && (
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder="Enter your name"
+                      {...field}
+                      disabled={isLoading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Creating Account..." : "Create Anonymous Account"}
           </Button>

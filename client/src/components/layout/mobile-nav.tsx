@@ -68,10 +68,10 @@ export default function MobileNav() {
             isActive={location === "/chat"}
           />
           <NavItem
-            href="/appointments"
+            href="/counselor/slots"
             icon="ri-calendar-line"
             label="Appts"
-            isActive={location === "/appointments"}
+            isActive={location === "/counselor/slots"}
           />
         </>
       )}

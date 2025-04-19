@@ -27,7 +27,7 @@ export async function runMigrations() {
         END IF;
         
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'appointment_status') THEN
-          CREATE TYPE appointment_status AS ENUM ('scheduled', 'canceled', 'completed');
+          CREATE TYPE appointment_status AS ENUM ('scheduled', 'cancelled', 'completed');
         END IF;
         
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'resource_type') THEN
@@ -50,6 +50,7 @@ export async function runMigrations() {
         username TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         role user_role NOT NULL DEFAULT 'student',
+        name TEXT NOT NULL DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);

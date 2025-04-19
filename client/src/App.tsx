@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { useAuth } from "./hooks/use-auth";
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 // Pages
 import Login from "@/pages/login";
@@ -13,11 +14,15 @@ import Resources from "@/pages/resources";
 import Chat from "@/pages/chat";
 import Appointments from "@/pages/appointments";
 import NotFound from "@/pages/not-found";
+import SlotManagement from "@/components/counselor/slot-management";
+import SlotManagementPage from "@/pages/counselor/SlotManagementPage";
 
 // Counselor Pages
 import CounselorDashboard from "@/pages/counselor/dashboard";
 import CounselorAssessments from "@/pages/counselor/assessments";
 import CounselorResources from "@/pages/counselor/resources";
+import CounselorCalendar from "@/components/counselor/counselor-calendar";
+import CounselorCalendarPage from "@/pages/counselor/CounselorCalendarPage";
 
 
 import RegisterForm from "@/components/auth/register-form";
@@ -59,7 +64,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       {/* Registration Route */}
-      <Route path="/register" component={RegisterForm} />
+      {/* <Route path="/register" component={RegisterForm} /> */}
       {/* Student Routes */}
       <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} />
@@ -86,6 +91,12 @@ function Router() {
       </Route>
       <Route path="/counselor/resources">
         <ProtectedRoute component={CounselorResources} counselorOnly />
+      </Route>
+      <Route path="/counselor/slots">
+        <ProtectedRoute component={SlotManagementPage} counselorOnly />
+      </Route>
+      <Route path="/counselor/calendar">
+        <ProtectedRoute component={CounselorCalendarPage} counselorOnly />
       </Route>
 
       {/* Redirect / to appropriate location */}

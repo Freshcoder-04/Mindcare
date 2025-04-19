@@ -27,8 +27,13 @@ export default function Dashboard() {
 
   // Fetch upcoming appointments
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery({
-    queryKey: ['/api/appointments'],
-    queryFn: getQueryFn({ on401: "throw" })
+    queryKey: ['/api/appointments', user?.id],
+    queryFn: async () => {
+      const res = await fetch('/api/appointments', { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch appointments");
+      return res.json();
+    },
+    enabled: !!user, // only run if a user is present
   });
 
   const handleMoodSelect = async (mood: string) => {
@@ -130,7 +135,9 @@ export default function Dashboard() {
 
         {/* Upcoming Appointments */}
         <div className="mb-8">
-          <h3 className="text-xl font-heading font-semibold text-neutral-800 mb-4">Upcoming Appointments</h3>
+          <h3 className="text-xl font-heading font-semibold text-neutral-800 mb-4">
+            Upcoming Appointments
+          </h3>
           <Card className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
             {isLoadingAppointments ? (
               <div className="p-8">
@@ -139,40 +146,69 @@ export default function Dashboard() {
                 <Skeleton className="h-4 w-64 mx-auto mb-4" />
                 <Skeleton className="h-10 w-40 mx-auto" />
               </div>
-            ) : appointments && appointments.length > 0 ? (
-              <div className="divide-y divide-neutral-200">
-                {appointments.filter(appt => appt.status === 'scheduled').map((appointment) => (
-                  <div key={appointment.id} className="p-4 flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">{new Date(appointment.startTime).toLocaleDateString()}</div>
-                      <div className="text-sm text-neutral-500">
-                        {new Date(appointment.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                        {new Date(appointment.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => navigate("/appointments")}
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                ))}
-              </div>
             ) : (
-              <div className="p-8 text-center">
-                <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <i className="ri-calendar-line text-2xl text-neutral-400"></i>
-                </div>
-                <h4 className="font-heading font-medium text-neutral-700 mb-2">No Upcoming Appointments</h4>
-                <p className="text-neutral-500 text-sm mb-4">You don't have any scheduled appointments with counselors.</p>
-                <Button 
-                  className="bg-primary text-white hover:bg-primary-dark"
-                  onClick={() => navigate("/appointments")}
-                >
-                  Book an Appointment
-                </Button>
-              </div>
+              // Filter only the scheduled appointments
+              (() => {
+                const upcomingAppointments =
+                  appointments?.filter(
+                    (apt: any) => apt.status === "scheduled"
+                  ) || [];
+                if (upcomingAppointments.length > 0) {
+                  return (
+                    <div className="divide-y divide-neutral-200">
+                      {upcomingAppointments.map((appointment: any) => (
+                        <div
+                          key={appointment.id}
+                          className="p-4 flex justify-between items-center"
+                        >
+                          <div>
+                            <div className="font-medium">
+                              {new Date(appointment.startTime).toLocaleDateString()}
+                            </div>
+                            <div className="text-sm text-neutral-500">
+                              {new Date(appointment.startTime).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}{" "}
+                              -{" "}
+                              {new Date(appointment.endTime).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => navigate("/appointments")}
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="p-8 text-center">
+                      <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i className="ri-calendar-line text-2xl text-neutral-400"></i>
+                      </div>
+                      <h4 className="font-heading font-medium text-neutral-700 mb-2">
+                        No Upcoming Appointments
+                      </h4>
+                      <p className="text-neutral-500 text-sm mb-4">
+                        You don't have any scheduled appointments with counselors.
+                      </p>
+                      <Button
+                        className="bg-primary text-white hover:bg-primary-dark"
+                        onClick={() => navigate("/appointments")}
+                      >
+                        Book an Appointment
+                      </Button>
+                    </div>
+                  );
+                }
+              })()
             )}
           </Card>
         </div>

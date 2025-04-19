@@ -28,7 +28,8 @@ const counselorNavItems: NavItem[] = [
   { href: "/counselor/assessments", label: "Assessments", icon: "ri-file-list-3-line" },
   { href: "/counselor/resources", label: "Manage Resources", icon: "ri-book-open-line" },
   { href: "/chat", label: "Chat", icon: "ri-chat-3-line" },
-  { href: "/appointments", label: "Appointments", icon: "ri-calendar-line" },
+  { href: "/counselor/slots", label: "Manage Available Slots", icon: "ri-calendar-line" },
+  { href: "/counselor/calendar", label: "My Calendar", icon: "ri-calendar-line" },
 ];
 
 export default function Sidebar() {

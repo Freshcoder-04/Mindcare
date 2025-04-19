@@ -257,7 +257,7 @@ export class PgStorage implements IStorage {
     return result[0];
   }
 
-  async updateAppointment(id: number, status: 'scheduled' | 'canceled' | 'completed'): Promise<Appointment | undefined> {
+  async updateAppointment(id: number, status: 'scheduled' | 'cancelled' | 'completed'): Promise<Appointment | undefined> {
     const result = await db.update(schema.appointments)
       .set({ status })
       .where(eq(schema.appointments.id, id))
@@ -297,6 +297,13 @@ export class PgStorage implements IStorage {
     return result[0];
   }
 
+  async deleteAvailableSlot(id: number): Promise<boolean> {
+    const result = await db.delete(schema.availableSlots)
+      .where(eq(schema.availableSlots.id, id))
+      .returning();
+    return result.length > 0;
+  }
+  
   // ===== Seed Data =====
 
   /**

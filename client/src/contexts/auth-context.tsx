@@ -67,10 +67,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const register = async (role: "student" | "counselor", password: string) => {
+  const register = async (role: "student" | "counselor", password: string, name?:string) => {
     try {
-      console.log("Reached register function, role:", role, "password:", password);
-      const res = await apiRequest("POST", "/api/auth/register", { password, role });
+      const res = await apiRequest("POST", "/api/auth/register", { password, role, name });
       const data = await res.json();
       setUser(data.user);
       setIsAuthenticated(true);

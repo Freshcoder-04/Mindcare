@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import PageLayout from "@/components/layout/page-layout";
@@ -5,18 +6,25 @@ import FlaggedSubmissions from "@/components/counselor/flagged-submissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CounselorDashboard() {
   const [, navigate] = useLocation();
+  const [canceling, setCanceling] = useState<number | null>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
   
   // Fetch upcoming appointments
   const { data: appointments, isLoading: loadingAppointments } = useQuery({
-    queryKey: ['/api/appointments'],
+    queryKey: ['/api/appointments', user?.id],
     queryFn: async () => {
       const res = await fetch('/api/appointments', { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch appointments");
       return res.json();
     },
+    enabled: !!user, // only run if a user is present
   });
   
   // Fetch flagged assessments count
@@ -28,6 +36,33 @@ export default function CounselorDashboard() {
       return res.json();
     },
   });
+
+  // Handle appointment cancellation
+  const handleCancelAppointment = async (appointmentId: number) => {
+      setCanceling(appointmentId);
+      
+      try {
+        await apiRequest("PUT", `/api/appointments/${appointmentId}/cancel`);
+        
+        toast({
+          title: "Appointment cancelled",
+          description: "Your appointment has been cancelled successfully.",
+        });
+        
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/appointments/slots'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/counselor/slots'] });
+      } catch (error) {
+        toast({
+          title: "Cancellation Failed",
+          description: "There was an error canceling your appointment. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setCanceling(null);
+      }
+    };
   
   // Filter scheduled appointments
   const scheduledAppointments = appointments?.filter((apt: any) => apt.status === 'scheduled') || [];
@@ -94,7 +129,7 @@ export default function CounselorDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Button
             onClick={() => navigate("/counselor/assessments")}
-            className="h-auto py-4 bg-primary-light hover:bg-primary-light/80 text-primary"
+            className="h-auto py-4 bg-primary-light hover:bg-primary-light/80 text-neutral-800"
           >
             <div className="flex flex-col items-center">
               <i className="ri-file-list-3-line text-2xl mb-2"></i>
@@ -104,7 +139,7 @@ export default function CounselorDashboard() {
           
           <Button
             onClick={() => navigate("/counselor/resources")}
-            className="h-auto py-4 bg-secondary-light hover:bg-secondary-light/80 text-secondary"
+            className="h-auto py-4 bg-secondary-light hover:bg-secondary-light/80 text-neutral-800"
           >
             <div className="flex flex-col items-center">
               <i className="ri-book-open-line text-2xl mb-2"></i>
@@ -113,12 +148,12 @@ export default function CounselorDashboard() {
           </Button>
           
           <Button
-            onClick={() => navigate("/appointments")}
+            onClick={() => navigate("/counselor/slots")}
             className="h-auto py-4 bg-accent-light hover:bg-accent-light/80 text-neutral-800"
           >
             <div className="flex flex-col items-center">
               <i className="ri-calendar-line text-2xl mb-2"></i>
-              <span>Manage Appointments</span>
+              <span>Manage Available Slots</span>
             </div>
           </Button>
           
@@ -159,37 +194,44 @@ export default function CounselorDashboard() {
                   {scheduledAppointments.map((appointment: any) => (
                     <div
                       key={appointment.id}
-                      className="border border-neutral-200 rounded-lg p-4"
+                      className="border border-neutral-200 rounded-lg p-4 flex flex-col md:flex-row justify-between"
                     >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-medium mb-1">
-                            Counseling Session with Student #{appointment.studentId}
-                          </div>
-                          <div className="text-sm text-neutral-500">
-                            {new Date(appointment.startTime).toLocaleDateString()} at{" "}
-                            {new Date(appointment.startTime).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                            {" - "}
-                            {new Date(appointment.endTime).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </div>
-                          {appointment.notes && (
-                            <div className="mt-2 text-sm bg-neutral-50 p-2 rounded">
-                              Notes: {appointment.notes}
-                            </div>
-                          )}
+                      <div>
+                        <div className="font-medium mb-1">
+                          Counseling Session with Student #{appointment.studentId}
                         </div>
-                        
+                        <div className="text-sm text-neutral-500">
+                          {new Date(appointment.startTime).toLocaleDateString()} at{" "}
+                          {new Date(appointment.startTime).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}{" "}
+                          -{" "}
+                          {new Date(appointment.endTime).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                        {appointment.notes && (
+                          <div className="mt-2 text-sm bg-neutral-50 p-2 rounded">
+                            Notes: {appointment.notes}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center">
                         <Button
-                          variant="outline"
-                          onClick={() => navigate("/appointments")}
+                          variant="destructive"
+                          onClick={() => handleCancelAppointment(appointment.id)}
+                          disabled={canceling === appointment.id}
                         >
-                          View Details
+                          {canceling === appointment.id ? (
+                            <>
+                              <i className="ri-loader-4-line animate-spin mr-2"></i>
+                              Canceling...
+                            </>
+                          ) : (
+                            "Cancel Appointment"
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -200,11 +242,13 @@ export default function CounselorDashboard() {
                   <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i className="ri-calendar-line text-2xl text-neutral-400"></i>
                   </div>
-                  <h3 className="text-lg font-medium text-neutral-700 mb-2">No Upcoming Appointments</h3>
+                  <h3 className="text-lg font-medium text-neutral-700 mb-2">
+                    No Upcoming Appointments
+                  </h3>
                   <p className="text-neutral-500 text-sm mb-4">
                     You don't have any scheduled appointments with students.
                   </p>
-                  <Button variant="outline" onClick={() => navigate("/appointments")}>
+                  <Button variant="outline" onClick={() => navigate("/counselor/slots")}>
                     Manage Appointment Slots
                   </Button>
                 </div>
