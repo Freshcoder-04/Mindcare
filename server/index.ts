@@ -8,31 +8,6 @@ import { runMigrations } from "./migrate";
 import { PgStorage } from "./pg-storage";
 import http from "http";
 import "./listeners";
-// Initialize the database connection and run migrations
-checkDbConnection()
-  .then(connected => {
-    if (!connected) {
-      log("Database connection failed. Exiting...", "db");
-      process.exit(1);
-    }
-    return runMigrations();
-  })
-  .then(async () => {
-    log("Database setup completed successfully", "db");
-    
-    // Initialize default PostgreSQL data after migrations
-    try {
-      const pgStorage = new PgStorage();
-      await pgStorage.initializeDefaultData();
-      log("PostgreSQL storage initialized with default data", "db");
-    } catch (error) {
-      log(`Error initializing PostgreSQL storage: ${error}`, "db");
-    }
-  })
-  .catch(error => {
-    log(`Database setup error: ${error}`, "db");
-    process.exit(1);
-  });
 
 // Initialize the application
 const app = express();
@@ -65,63 +40,39 @@ app.use((req, res, next) => {
   next();
 });
 
-// Setup routes
-// registerRoutes(app);
-
-// // Create HTTP server from Express app
-// const server = http.createServer(app);
-//   let server: http.Server;
-//   (async () => {
-//     server = await registerRoutes(app);
-//   })();
-
-      
-
-// // Initialize default PostgreSQL data
-// (async () => {
-//   try {
-//     const pgStorage = new PgStorage();
-//     await pgStorage.initializeDefaultData();
-//     log("PostgreSQL storage initialized with default data", "db");
-//   } catch (error) {
-//     log(`Error initializing PostgreSQL storage: ${error}`, "db");
-//   }
-
-//   // Setup Vite in development mode, else serve static assets.
-//   if (app.get("env") === "development") {
-//     // Pass both the app and the HTTP server to setupVite.
-//     await setupVite(app, server);
-//   } else {
-//     serveStatic(app);
-//   }
-
-//   // Listen on port 8080
-//   const port = 8080;
-//   server.listen(port, () => {
-//     log(`Server is running on port ${port}`);
-//   });
-// })();
+// Main initialization function
 (async () => {
   try {
-    // Setup DB
+    // 1. Check database connection
+    const connected = await checkDbConnection();
+    if (!connected) {
+      log("Database connection failed. Exiting...", "db");
+      process.exit(1);
+    }
+
+    // 2. Run migrations
+    await runMigrations();
+    log("Database migrations completed successfully", "db");
+
+    // 3. Initialize default data
     const pgStorage = new PgStorage();
     await pgStorage.initializeDefaultData();
     log("PostgreSQL storage initialized with default data", "db");
 
-    // Setup WebSocket + routes
+    // 4. Setup WebSocket + routes
     const server = await registerRoutes(app);
 
-    // Setup Vite or static serving
+    // 5. Setup Vite or static serving
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
-    // Start the server
+    // 6. Start the server
     const port = 8080;
     server.listen(port, () => {
-      log(` Server + WebSocket running at http://localhost:${port}`);
+      log(`Server + WebSocket running at http://localhost:${port}`);
     });
   } catch (err) {
     log(`Error during server startup: ${err}`, "server");

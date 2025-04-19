@@ -21,7 +21,12 @@ import * as schema from "../shared/schema";
  * PostgreSQL implementation of IStorage
  */
 export class PgStorage implements IStorage {
-  
+  private currentUserId?: number;
+
+  setCurrentUser(userId: number) {
+    this.currentUserId = userId;
+  }
+
   // ===== User Operations =====
   
   async getUser(id: number): Promise<User | undefined> {
@@ -146,7 +151,14 @@ export class PgStorage implements IStorage {
   }
 
   async createResource(resource: InsertResource): Promise<Resource> {
-    const result = await db.insert(schema.resources).values(resource).returning();
+    if (!this.currentUserId) {
+      throw new Error("No current user set");
+    }
+
+    const result = await db.insert(schema.resources).values({
+      ...resource,
+      createdBy: this.currentUserId,
+    }).returning();
     return result[0];
   }
 
@@ -204,7 +216,11 @@ export class PgStorage implements IStorage {
 
   // ===== Chat Room Operations =====
 
-  async createChatRoom(data: InsertChatRoom, creatorId: number) {
+  async createChatRoom(data: InsertChatRoom) {
+    if (!this.currentUserId) {
+      throw new Error("No current user set");
+    }
+
     const existing = await db
       .select()
       .from(schema.chatRooms)
@@ -223,10 +239,10 @@ export class PgStorage implements IStorage {
       })
       .returning();
     
-      await db.insert(chatRoomMemberships).values({
-        userId: creatorId,
-        roomId: room.id,
-      });
+    await db.insert(chatRoomMemberships).values({
+      userId: this.currentUserId,
+      roomId: room.id,
+    });
 
     return room;
   }
@@ -486,12 +502,14 @@ export class PgStorage implements IStorage {
         role: "counselor"
       });
 
+      // Set the current user for chat room creation
+      this.setCurrentUser(counselor.id);
+
       // Create a general chat room
       const generalRoom = await this.createChatRoom({
         name: "General Support",
         description: "A general chat room for all students to discuss mental health topics and get support.",
-        type: "group",
-        members: []
+        type: "group"
       });
 
       console.log("Database initialization completed successfully");

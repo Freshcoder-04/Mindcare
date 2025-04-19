@@ -122,6 +122,17 @@ export async function runMigrations() {
       );
     `);
     
+    // Chat room memberships table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS chat_room_memberships (
+        id SERIAL PRIMARY KEY,
+        room_id INTEGER NOT NULL REFERENCES chat_rooms(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        joined_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(room_id, user_id)
+      );
+    `);
+    
     // Chat messages table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS chat_messages (

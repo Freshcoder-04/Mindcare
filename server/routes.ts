@@ -337,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 flagged: doneMeta.flagged,
               });
   
-              // Emit a custom “done” event with the new submission ID
+              // Emit a custom "done" event with the new submission ID
               res.write(
                 `event: done\ndata: ${JSON.stringify({
                   submissionId: submission.id,
@@ -480,7 +480,7 @@ app.get('/api/resources', async (req, res) => {
   }
 });
 
-// 2) Get the current user’s saved resources
+// 2) Get the current user's saved resources
 app.get(
   '/api/resources/saved',
   isAuthenticated,
@@ -915,8 +915,8 @@ app.delete(
     if (!data) return;
   
     try {
-      // const room = await storage.createChatRoom(data);
-      const room = await storage.createChatRoom(data, (req.user as any).id);
+      storage.setCurrentUser((req.user as any).id);
+      const room = await storage.createChatRoom(data);
 
       eventBus.emit("new_room", { id: room.id, name: room.name, createdAt: room.createdAt });
 
