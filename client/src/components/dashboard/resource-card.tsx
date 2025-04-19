@@ -53,11 +53,11 @@ export default function ResourceCard({ resource, isSaved = false }: ResourceCard
       case "video":
         return "https://images.unsplash.com/photo-1536746803623-cef87080bfc8?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
       case "article":
-        return "https://images.unsplash.com/photo-1542596594-649edbc13630?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+        return "https://hips.hearstapps.com/hmg-prod/images/woman-meditation-on-an-ocean-side-rock-royalty-free-image-1616630391.?crop=0.88897xw:1xh;center,top&resize=1200:*";
       case "external_link":
         return "https://images.unsplash.com/photo-1564121211835-e88c852648ab?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
       default:
-        return "https://images.unsplash.com/photo-1542596594-649edbc13630?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+        return "https://hips.hearstapps.com/hmg-prod/images/woman-meditation-on-an-ocean-side-rock-royalty-free-image-1616630391.?crop=0.88897xw:1xh;center,top&resize=1200:*";;
     }
   };
   
