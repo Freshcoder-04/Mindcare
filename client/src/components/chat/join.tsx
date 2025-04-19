@@ -20,9 +20,12 @@ export default function AvailableRooms() {
         const res = await fetch("/api/chat/rooms/available", {
           credentials: "include",
         });
-        const data = await res.json();
+        const data : ChatRoom[] = await res.json();
         console.log("Joinable rooms response:", data);
-        setAvailableRooms(data);
+        const groupRooms = data.filter(room => room.type === "group");
+        // setAvailableRooms(data);
+        setAvailableRooms(groupRooms);
+
       } catch (err) {
         console.error("Failed to fetch joinable rooms", err);
       } finally {

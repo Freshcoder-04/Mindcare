@@ -60,7 +60,7 @@ export default function Chat() {
       socket.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === "new-room") {
+          if (msg.type === "new_room") {
             const newRoom: ChatRoomType = msg.payload;
     
             setChatRooms((prev) => {
@@ -69,7 +69,7 @@ export default function Chat() {
             });
           }
 
-          if (msg.type === "user-joined") {
+          if (msg.type === "user_joined") {
             console.log(`User ${msg.payload.userId} joined room ${msg.payload.roomId}`);
             // Optionally show a toast or update UI
           }

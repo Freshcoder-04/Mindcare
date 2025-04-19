@@ -7,7 +7,7 @@ import { checkDbConnection } from "./db";
 import { runMigrations } from "./migrate";
 import { PgStorage } from "./pg-storage";
 import http from "http";
-
+import "./listeners";
 // Initialize the database connection and run migrations
 checkDbConnection()
   .then(connected => {

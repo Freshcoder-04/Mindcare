@@ -27,16 +27,18 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { eventBus } from "./eventBus";
 
 
-// WebSocket clients store
-interface Client {
-  userId: number;
-  socket: WebSocket;
-  roomIds: number[];
-}
+import { clients } from "./clients";
+// // WebSocket clients store
+// interface Client {
+//   userId: number;
+//   socket: WebSocket;
+//   roomIds: number[];
+// }
 
-const clients: Client[] = [];
+// const clients: Client[] = [];
 
 const app = express();
 
@@ -542,8 +544,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // const room = await storage.createChatRoom(data);
       const room = await storage.createChatRoom(data, (req.user as any).id);
 
+      eventBus.emit("new_room", { id: room.id, name: room.name, createdAt: room.createdAt });
+
       const message = JSON.stringify({
-        type: "new-room",
+        type: "new_room",
         payload: room,
       });
   
@@ -600,13 +604,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chat/rooms/:id/join", isAuthenticated, async (req, res) => {
     const user = req.user as any;
     const roomId = parseInt(req.params.id);
-  
+    // const roomId = parseInt(req.params.id, 10);
     try {
       await storage.joinRoom(user.id, roomId);
-  
+      
+      eventBus.emit("user_joined", { userId: user.id, roomId });
+
+
       // WebSocket broadcast (see step 3 below)
       const message = JSON.stringify({
-        type: "user-joined",
+        type: "user_joined",
         payload: { userId: user.id, roomId },
       });
   
