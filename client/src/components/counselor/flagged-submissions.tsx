@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { getScoreColor } from "@/lib/utils";
 import { AssessmentSubmission } from "@shared/schema";
+import { Link } from "react-router-dom";
 
 export default function FlaggedSubmissions() {
   const [selectedSubmission, setSelectedSubmission] = useState<AssessmentSubmission | null>(null);
@@ -145,9 +146,14 @@ export default function FlaggedSubmissions() {
                 <Button variant="outline" onClick={handleCloseDetails}>
                   Close
                 </Button>
-                <Button className="bg-primary text-white hover:bg-primary-dark">
+                {/* <Button className="bg-primary text-white hover:bg-primary-dark">
                   Send Message to Student
-                </Button>
+                </Button> */}
+                <Link to="/counselor/chat-counselor">
+                    <button className="bg-primary hover:bg-primary-dark text-white font-medium px-4 py-2 rounded-lg">
+                      Message Student
+                    </button>
+                  </Link>
               </div>
             </div>
           </div>
