@@ -28,6 +28,7 @@ export default function SlotManagement() {
           title: "Slot Added",
           description: "Your available slot(s) have been set."
         });
+        queryClient.invalidateQueries({ queryKey: ["/api/appointments", user?.id] });
         queryClient.invalidateQueries({ queryKey: ["/api/counselor/slots", user?.id] });
         // Optionally reset form
         setStartTime("");
