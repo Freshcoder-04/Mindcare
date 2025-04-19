@@ -1,0 +1,93 @@
+@startuml Assessment Subsystem Class Diagram with Adapter
+
+' Interfaces
+interface IStorage {
+    +getAssessmentQuestions(): Promise<AssessmentQuestion[]>
+    +createAssessmentQuestion(question: AssessmentQuestion): Promise<AssessmentQuestion>
+    +updateAssessmentQuestion(id: number, question: AssessmentQuestion): Promise<AssessmentQuestion>
+    +deleteAssessmentQuestion(id: number): Promise<void>
+    +getAssessmentSubmissions(userId?: number): Promise<AssessmentSubmission[]>
+    +createAssessmentSubmission(submission: AssessmentSubmission): Promise<AssessmentSubmission>
+    +updateAssessmentSubmission(id: number, submission: AssessmentSubmission): Promise<AssessmentSubmission>
+}
+
+' Concrete Adapters
+class MemStorage {
+    -questions: Map<number, AssessmentQuestion>
+    -submissions: Map<number, AssessmentSubmission>
+    +getAssessmentQuestions()
+    +createAssessmentQuestion()
+    +updateAssessmentQuestion()
+    +deleteAssessmentQuestion()
+    +getAssessmentSubmissions()
+    +createAssessmentSubmission()
+    +updateAssessmentSubmission()
+}
+
+class PgStorage {
+    -db: Database
+    +getAssessmentQuestions()
+    +createAssessmentQuestion()
+    +updateAssessmentQuestion()
+    +deleteAssessmentQuestion()
+    +getAssessmentSubmissions()
+    +createAssessmentSubmission()
+    +updateAssessmentSubmission()
+}
+
+' Domain Classes
+class AssessmentQuestion {
+    +id: number
+    +question: string
+    +options: string[]
+    +category: string
+    +weight: number
+}
+
+class AssessmentSubmission {
+    +id: number
+    +userId: number
+    +responses: Record<string, number>
+    +score: number
+    +feedback: string
+    +status: string
+    +flagged: boolean
+    +reviewedBy: number
+    +createdAt: Date
+}
+
+class AssessmentForm {
+    +questions: AssessmentQuestion[]
+    +currentQuestionIndex: number
+    +responses: Record<string, number>
+    +handleOptionSelect()
+    +handleSubmit()
+}
+
+class AssessmentHistory {
+    +submissions: AssessmentSubmission[]
+    +onViewDetails()
+}
+
+class AssessmentResults {
+    +score: number
+    +feedback: string
+    +flagged: boolean
+    +getScoreText()
+}
+
+' Relationships
+IStorage <|.. MemStorage
+IStorage <|.. PgStorage
+
+AssessmentForm --> AssessmentQuestion : "uses"
+AssessmentForm --> AssessmentSubmission : "creates"
+AssessmentHistory --> AssessmentSubmission : "displays"
+AssessmentResults --> AssessmentSubmission : "displays"
+
+MemStorage --> AssessmentQuestion : "stores"
+MemStorage --> AssessmentSubmission : "stores"
+PgStorage --> AssessmentQuestion : "stores"
+PgStorage --> AssessmentSubmission : "stores"
+
+@enduml

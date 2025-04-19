@@ -1,0 +1,91 @@
+@startuml Enhanced Appointment Subsystem Class Diagram
+
+' Interfaces
+interface IStorage {
+    +getAvailableSlots(counselorId?: number): Promise<AvailableSlot[]>
+    +getAvailableSlot(id: number): Promise<AvailableSlot | undefined>
+    +createAvailableSlot(slot: AvailableSlot): Promise<AvailableSlot>
+    +updateAvailableSlot(id: number, isBooked: boolean): Promise<AvailableSlot | undefined>
+    +getAppointments(userId?: number, role?: 'student' | 'counselor'): Promise<Appointment[]>
+    +getAppointment(id: number): Promise<Appointment | undefined>
+    +createAppointment(appointment: Appointment): Promise<Appointment>
+    +updateAppointment(id: number, status: 'scheduled' | 'canceled' | 'completed'): Promise<Appointment | undefined>
+}
+
+' Concrete Adapters
+class MemStorage {
+    -availableSlots: Map<number, AvailableSlot>
+    -appointments: Map<number, Appointment>
+    +getAvailableSlots()
+    +getAvailableSlot()
+    +createAvailableSlot()
+    +updateAvailableSlot()
+    +getAppointments()
+    +getAppointment()
+    +createAppointment()
+    +updateAppointment()
+}
+
+class PgStorage {
+    -db: Database
+    +getAvailableSlots()
+    +getAvailableSlot()
+    +createAvailableSlot()
+    +updateAvailableSlot()
+    +getAppointments()
+    +getAppointment()
+    +createAppointment()
+    +updateAppointment()
+}
+
+' Domain Classes
+class AvailableSlot {
+    +id: number
+    +counselorId: number
+    +startTime: Date
+    +endTime: Date
+    +isBooked: boolean
+    +createdAt: Date
+}
+
+class Appointment {
+    +id: number
+    +studentId: number
+    +counselorId: number
+    +startTime: Date
+    +endTime: Date
+    +status: string
+    +notes: string
+    +createdAt: Date
+}
+
+class AppointmentCalendar {
+    +availableSlots: AvailableSlot[]
+    +selectedDate: Date
+    +handleBookAppointment()
+    +handleDateSelect()
+}
+
+class AppointmentManagement {
+    +appointments: Appointment[]
+    +handleCancelAppointment()
+    +handleReschedule()
+    +getUpcomingAppointments()
+    +getPastAppointments()
+}
+
+' Relationships
+IStorage <|.. MemStorage
+IStorage <|.. PgStorage
+
+AppointmentCalendar --> AvailableSlot : "displays"
+AppointmentCalendar --> Appointment : "creates"
+AppointmentManagement --> Appointment : "manages"
+Appointment --> AvailableSlot : "uses"
+
+MemStorage --> AvailableSlot : "stores"
+MemStorage --> Appointment : "stores"
+PgStorage --> AvailableSlot : "stores"
+PgStorage --> Appointment : "stores"
+
+@enduml

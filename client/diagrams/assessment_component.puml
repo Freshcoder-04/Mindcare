@@ -1,0 +1,30 @@
+@startuml Assessment Subsystem
+
+' Component Diagram
+package "Assessment Subsystem" {
+    [Assessment Form] as form
+    [Assessment History] as history
+    [Assessment Results] as results
+    [Assessment Question Management] as questionMgmt
+    [Flagged Submissions] as flagged
+}
+
+package "Database" {
+    [Assessment Questions] as questionsDB
+    [Assessment Submissions] as submissionsDB
+}
+
+' Relationships
+form --> questionsDB : "Fetches questions"
+form --> submissionsDB : "Submits responses"
+history --> submissionsDB : "Fetches history"
+results --> submissionsDB : "Stores results"
+questionMgmt --> questionsDB : "CRUD operations"
+flagged --> submissionsDB : "Monitors flagged submissions"
+
+' External Systems
+[AI Analysis Service] as aiService
+submissionsDB --> aiService : "Sends for analysis"
+aiService --> submissionsDB : "Returns feedback"
+
+@enduml

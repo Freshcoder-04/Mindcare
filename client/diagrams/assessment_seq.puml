@@ -1,0 +1,51 @@
+@startuml Assessment Subsystem Sequence Diagram
+
+actor User
+participant "Assessment Form" as form
+participant "Assessment History" as history
+participant "Assessment Results" as results
+participant "IStorage" as storage
+participant "AI Analysis Service" as aiService
+database "Database" as db
+
+' Start Assessment Flow
+User -> form: Start Assessment
+form -> storage: getAssessmentQuestions()
+storage -> db: Query Questions
+db --> storage: Return Questions
+storage --> form: Return Questions
+form -> User: Display Questions
+
+loop For each question
+    User -> form: Select Answer
+    form -> form: Store Response
+end
+
+User -> form: Submit Assessment
+form -> storage: createAssessmentSubmission()
+storage -> db: Store Submission
+db --> storage: Submission Stored
+storage -> aiService: Analyze Responses
+aiService --> storage: Return Analysis
+storage --> form: Return Results
+form -> results: Display Results
+results -> User: Show Score & Feedback
+
+' View History Flow
+User -> history: View Assessment History
+history -> storage: getAssessmentSubmissions()
+storage -> db: Query Submissions
+db --> storage: Return Submissions
+storage --> history: Return Submissions
+history -> User: Display History
+
+' View Details Flow
+User -> history: View Submission Details
+history -> storage: getAssessmentSubmission(id)
+storage -> db: Query Submission
+db --> storage: Return Submission
+storage --> history: Return Submission
+history -> results: Display Details
+results -> User: Show Detailed Results
+
+@enduml
