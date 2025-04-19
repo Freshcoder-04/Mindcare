@@ -6,6 +6,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Resource } from "@shared/schema";
+import { toEmbedUrl } from "@/lib/utils";
 
 interface ResourceCardProps {
   resource: Resource;
@@ -116,7 +117,7 @@ export default function ResourceCard({ resource, isSaved = false }: ResourceCard
             </DialogDescription>
           </DialogHeader>
           
-          {resource.type === "video" && resource.url && (
+          {/* {resource.type === "video" && resource.url && (
             <div className="aspect-video rounded-md overflow-hidden">
               <iframe
                 src={resource.url}
@@ -125,7 +126,17 @@ export default function ResourceCard({ resource, isSaved = false }: ResourceCard
                 allowFullScreen
               ></iframe>
             </div>
-          )}
+          )} */}
+          + {resource.type === "video" && resource.url && (
+   <div className="aspect-video rounded-md overflow-hidden">
+     <iframe
+       src={toEmbedUrl(resource.url)}
+       title={resource.title}
+       className="w-full h-full"
+       allowFullScreen
+     />
+   </div>
+ )}
           
           {resource.type === "article" && (
             <div className="prose max-w-none">

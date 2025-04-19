@@ -34,6 +34,17 @@ import {
 import { Resource } from "@shared/schema";
 
 // Form schema with validation
+// const formSchema = z.object({
+//   title: z.string().min(5, "Title must be at least 5 characters"),
+//   description: z.string().min(10, "Description must be at least 10 characters"),
+//   type: z.enum(["article", "video", "external_link"], {
+//     required_error: "Please select a resource type",
+//   }),
+//   content: z.string().optional(),
+//   url: z.string().url("Please enter a valid URL").optional(),
+//   category: z.string().min(3, "Category is required"),
+// });
+
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
@@ -41,9 +52,32 @@ const formSchema = z.object({
     required_error: "Please select a resource type",
   }),
   content: z.string().optional(),
-  url: z.string().url("Please enter a valid URL").optional(),
+  url: z.string().optional(), // We'll handle URL validation conditionally
   category: z.string().min(3, "Category is required"),
+}).superRefine((data, ctx) => {
+  if ((data.type === "video" || data.type === "external_link")) {
+    // For video or external_link types, a URL is required
+    if (!data.url || data.url.trim() === "") {
+      ctx.addIssue({
+        path: ["url"],
+        code: z.ZodIssueCode.custom,
+        message: `${data.type === "video" ? "Video" : "External link"} type resources must have a URL.`,
+      });
+    } else {
+      // If a URL is provided, check its validity.
+      try {
+        new URL(data.url);
+      } catch (error) {
+        ctx.addIssue({
+          path: ["url"],
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a valid URL.",
+        });
+      }
+    }
+  }
 });
+
 
 interface ResourceFormProps {
   resourceToEdit?: Resource;
@@ -76,6 +110,7 @@ export default function ResourceForm({
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     // Validate based on resource type
+    console.log('onSubmit triggered');
     if (values.type === "article" && !values.content) {
       toast({
         title: "Missing Content",
@@ -121,7 +156,7 @@ export default function ResourceForm({
         title: "Error",
         description: isEditing
           ? "Failed to update the resource. Please try again."
-          : "Failed to create the resource. Please try again.",
+          : "Failed to creat the resource. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -135,7 +170,9 @@ export default function ResourceForm({
         <CardTitle>{isEditing ? "Edit Resource" : "Create New Resource"}</CardTitle>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          console.log("Validation errors", errors);
+        })}>
           <CardContent className="space-y-4">
             <FormField
               control={form.control}
